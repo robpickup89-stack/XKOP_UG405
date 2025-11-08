@@ -1,0 +1,1378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>UG405 – XKOP Tool (Enhanced)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#282a32; --muted:#686b87; --action:#404089; --accent:#434ce8;
+  --border:#eff1f6; --bg:#fff; --bg2:#fdfcff; --bg3:#ecf3fe;
+  --success:#27ae60; --warning:#f39c12; --error:#e74c3c;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0; background:var(--bg2); color:var(--text); font-family:"Be Vietnam Pro",system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.wrapper{max-width:1400px;margin:0 auto;padding:16px}
+
+/* Header */
+.header{
+  position:sticky; top:8px; z-index:5;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+  display:flex; align-items:center; gap:14px; justify-content:space-between; flex-wrap:wrap;
+}
+.header-left,.header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.label{font-size:.82rem; color:var(--muted); font-weight:500}
+
+/* Inputs */
+.input,.select{
+  height:40px; border:2px solid var(--border); background:var(--bg);
+  padding:0 10px; border-radius:8px; font-size:.95rem; color:#404089; min-width:150px
+}
+.select{padding-right:28px} 
+.input:focus,.select:focus{outline:none;border-color:var(--accent)}
+input[disabled],select[disabled]{background:#f5f6fb;color:#9aa1b5}
+input[type="file"]{padding:8px; cursor:pointer}
+
+/* Buttons */
+.btn{
+  height:40px; padding:0 14px; border-radius:8px; background:var(--bg); border:2px solid var(--border);
+  cursor:pointer; font-weight:600; color:#404089; transition:.15s; font-size:.9rem;
+}
+.btn:hover{border-color:var(--accent); color:var(--accent)}
+.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+.btn.primary:hover{background:#3a3dd0}
+.btn.success{background:var(--success); color:#fff; border-color:var(--success)}
+.btn.warning{background:var(--warning); color:#fff; border-color:var(--warning)}
+.btn.danger{background:var(--error); color:#fff; border-color:var(--error)}
+.btn:disabled{opacity:0.5; cursor:not-allowed}
+
+/* Tabs */
+.tabs{display:flex; gap:10px; overflow:auto; margin:14px 0 8px; padding:2px; border-bottom:1px solid var(--border)}
+.tab{padding:10px 12px; border-bottom:3px solid transparent; font-weight:600; color:#404089; cursor:pointer; white-space:nowrap}
+.tab.active{color:var(--accent); border-bottom-color:var(--accent); background:var(--bg); border-radius:8px 8px 0 0}
+
+/* Panels */
+.panels{border:1px solid var(--border); background:var(--bg); border-radius:0 10px 10px 10px; max-height:calc(100vh - 170px); overflow:auto}
+.panel{display:none; padding:16px} .panel.active{display:block}
+
+/* Tables */
+.table{width:100%; border-collapse:separate; border-spacing:0; min-width:920px}
+.table th,.table td{padding:10px; border-bottom:1px solid var(--border); font-size:.93rem; text-align:left}
+.table th{color:#686b87; background:#f7f7ff; font-weight:600; position:sticky; top:0; z-index:2}
+.table tr:hover{background:#f9fafb}
+.table input,.table select{height:36px; min-width:100px}
+
+/* Badges & Pills */
+.small{font-size:.82rem; color:#686b87}
+.pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-weight:600;font-size:.85rem}
+.pill.ok{background:#eaf8f1; color:#127a4a} 
+.pill.warn{background:#fff7e1; color:#9a6a00}
+.pill.error{background:#ffe5e5; color:#c03; }
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3b43d4;font-size:.78rem}
+
+/* Alerts */
+.alert{padding:12px; border-radius:8px; margin-bottom:12px; border-left:4px solid}
+.alert.info{background:rgba(52,152,219,0.1); border-color:#3498db; color:#2980b9}
+.alert.success{background:rgba(39,174,96,0.1); border-color:#27ae60; color:#229954}
+.alert.warning{background:rgba(241,196,15,0.1); border-color:#f1c40f; color:#d68910}
+.alert.error{background:rgba(231,76,60,0.1); border-color:#e74c3c; color:#c0392b}
+
+/* Code/Log display */
+.code{font-family:ui-monospace,Consolas,Menlo,monospace; background:#0e1116; color:#c9d1d9; border:1px solid #1f2630; border-radius:8px; padding:10px; height:300px; overflow:auto; font-size:.88rem; line-height:1.5}
+.log-entry{margin-bottom:3px; padding:2px}
+.log-entry.error{color:#ff7b72}
+.log-entry.success{color:#7ee787}
+.log-entry.info{color:#79c0ff}
+
+/* Actions */
+.row-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
+/* Grid layouts */
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px}
+.card{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px}
+.card h3{margin:0 0 12px; color:var(--accent); font-size:1.1rem; font-weight:600}
+
+/* Checkbox */
+input[type="checkbox"]{width:18px; height:18px; cursor:pointer}
+
+/* Notification */
+.notification{
+  position:fixed; top:20px; right:20px; z-index:9999; max-width:400px;
+  padding:12px 16px; border-radius:8px; font-weight:500;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15); animation:slideIn 0.3s;
+}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1}}
+
+@media (max-width: 768px) {
+  .grid{grid-template-columns:1fr}
+  .header{flex-direction:column; align-items:stretch}
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div>
+        <div class="label">Controller IP</div>
+        <input id="ip" class="input" placeholder="e.g. 172.18.1.107">
+      </div>
+      <div>
+        <div class="label">Instation</div>
+        <input id="instation_ip" class="input" placeholder="e.g. 127.0.0.1">
+      </div>
+      <div>
+        <div class="label">XKOP</div>
+        <select id="xkop" class="select">
+          <option value="1">XKOP1 (8001)</option>
+          <option value="2">XKOP2 (8002)</option>
+          <option value="3">XKOP3 (8003)</option>
+          <option value="4">XKOP4 (8004)</option>
+        </select>
+      </div>
+      <div>
+        <div class="label">SNMP Port</div>
+        <input id="snmp_port" type="number" class="input" value="161" min="1" max="65535">
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn" id="btn-import-hvi">📥 Import HVI</button>
+      <button class="btn primary" id="btn-save">💾 Save Config</button>
+      <label class="btn" for="file-load">📂 Load Config</label>
+      <input id="file-load" type="file" accept="application/json" style="display:none">
+      <button class="btn" id="btn-export">📤 Export</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-panel="setup">Setup</div>
+    <div class="tab" data-panel="test">Test Mode</div>
+    <div class="tab" data-panel="live">Live Mirror</div>
+    <div class="tab" data-panel="import">Import/Export</div>
+    <div class="tab" data-panel="log-snmp">SNMP Log</div>
+    <div class="tab" data-panel="log-xkop">XKOP Log</div>
+    <div class="tab" data-panel="log-app">App Log</div>
+    <div class="tab" data-panel="hvi">HVI Viewer</div>
+    <div class="tab" data-panel="diag">Diagnostics</div>
+  </div>
+
+  <div class="panels">
+    <!-- SETUP -->
+    <div class="panel active" id="panel-setup">
+      <div class="alert info">
+        <strong>Configuration:</strong> Inputs are sent to controller via XKOP. Outputs come from controller (XKOP) and are published to instation via SNMP.
+      </div>
+      
+      <div class="row-actions" style="margin-bottom:12px">
+        <button class="btn success" id="btn-add-row">➕ Add Row</button>
+        <button class="btn" id="btn-delete-selected">🗑️ Delete Selected</button>
+        <button class="btn danger" id="btn-clear-rows">Clear All</button>
+        <span class="small">Index (Idx) is only used for bitmask functions (those ending with "n")</span>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="table" id="setup-table">
+          <thead>
+            <tr>
+              <th style="width:40px"><input type="checkbox" id="select-all"></th>
+              <th style="width:70px">NR</th>
+              <th>Input</th><th>SCN (in)</th><th>Func (in)</th><th>Idx (in)</th>
+              <th>Output</th><th>SCN (out)</th><th>Func (out)</th><th>Idx (out)</th>
+            </tr>
+          </thead>
+          <tbody id="setup-rows"></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3>Available Functions</h3>
+        <div class="grid">
+          <div>
+            <strong style="color:var(--accent)">Control Functions (Input → Controller)</strong>
+            <div class="small" style="margin-top:8px" id="control-funcs-list"></div>
+          </div>
+          <div>
+            <strong style="color:var(--accent)">Reply Functions (Controller → Instation)</strong>
+            <div class="small" style="margin-top:8px" id="reply-funcs-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEST MODE -->
+    <div class="panel" id="panel-test">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0">Test Mode</h3>
+            <div class="small">When enabled, automatic routing pauses. Use per-row buttons to manually test. Auto-disables after 1 hour.</div>
+          </div>
+          <div class="row-actions">
+            <span id="test-status" class="pill warn">OFF</span>
+            <span id="test-eta" class="badge" style="display:none">00:00:00</span>
+            <button class="btn success" id="btn-test-on">Enable</button>
+            <button class="btn danger" id="btn-test-off">Disable</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto; margin-top:16px">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:60px">NR</th>
+              <th>Input</th><th>SCN/Func/Idx</th><th>Value</th><th>Action</th>
+              <th>Output</th><th>SCN/Func/Idx</th><th>Value</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="test-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LIVE MIRROR -->
+    <div class="panel" id="panel-live">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <div class="small">Real-time state snapshot (read-only)</div>
+        <div class="row-actions">
+          <button class="btn success" id="btn-refresh-live">🔄 Refresh</button>
+          <button class="btn" id="btn-toggle-auto">⏱️ Auto: <span id="auto-status">OFF</span></button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:60px">NR</th>
+              <th>Input</th><th>SCN</th><th>Func</th><th>Idx</th><th>In Val</th>
+              <th>Output</th><th>SCN</th><th>Func</th><th>Idx</th><th>Out Val</th>
+            </tr>
+          </thead>
+          <tbody id="live-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- IMPORT/EXPORT -->
+    <div class="panel" id="panel-import">
+      <div class="grid">
+        <div class="card">
+          <h3>Import Configuration</h3>
+          
+          <div style="margin-top:16px">
+            <strong>From JSON File</strong>
+            <div class="small" style="margin:8px 0">Load complete configuration from exported JSON</div>
+            <input type="file" id="import-json-file" accept=".json" class="input" style="width:100%">
+            <button class="btn success" onclick="importFromJSON()" style="margin-top:8px">📥 Import JSON</button>
+          </div>
+
+          <div style="margin-top:20px">
+            <strong>From HVI File</strong>
+            <div class="small" style="margin:8px 0">Import HVI file from disk</div>
+            <input type="file" id="import-hvi-file" accept=".hvi,.txt" class="input" style="width:100%">
+            <button class="btn success" onclick="importFromHVIFile()" style="margin-top:8px">📥 Import HVI File</button>
+          </div>
+
+          <div style="margin-top:20px">
+            <strong>Fetch from Controller</strong>
+            <div class="small" style="margin:8px 0">Download HVI directly from controller web interface</div>
+            <button class="btn success" id="btn-fetch-hvi" style="width:100%">🌐 Fetch HVI from Controller</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Export Configuration</h3>
+          <div class="alert info">
+            Export your complete configuration for backup or migration to another system.
+          </div>
+          <div class="row-actions">
+            <button class="btn success" onclick="exportConfig()">📤 Export JSON</button>
+            <button class="btn" onclick="exportCSV()">📊 Export CSV</button>
+          </div>
+
+          <h3 style="margin-top:24px">Import Results</h3>
+          <div class="code" id="import-results" style="height:200px">
+            <div class="small" style="color:#888">Import results will appear here...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="panel" id="panel-log-snmp">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <div class="small">SNMP activity (agent requests & responses)</div>
+        <button class="btn success" onclick="refreshLogs()">🔄 Refresh</button>
+      </div>
+      <pre class="code" id="snmp-log"></pre>
+    </div>
+
+    <div class="panel" id="panel-log-xkop">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <div class="small">XKOP activity (UDP packets to/from controller)</div>
+        <button class="btn success" onclick="refreshLogs()">🔄 Refresh</button>
+      </div>
+      <pre class="code" id="xkop-log"></pre>
+    </div>
+
+    <div class="panel" id="panel-log-app">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <div class="small">Application status & configuration changes</div>
+        <button class="btn success" onclick="refreshLogs()">🔄 Refresh</button>
+      </div>
+      <pre class="code" id="app-log"></pre>
+    </div>
+
+    <!-- HVI VIEWER -->
+    <div class="panel" id="panel-hvi">
+      <div class="alert info">
+        <strong>HVI Maintenance Table:</strong> View and apply Input/Output names from the controller's HVI file.
+      </div>
+      <div class="row-actions" style="margin-bottom:12px">
+        <button class="btn success" id="btn-apply-hvi">✅ Apply Names from HVI</button>
+        <button class="btn" id="btn-refresh-hvi">🔄 Refresh HVI</button>
+        <span class="small">Seeds Input/Output names from :BEGINMAINTABLE section</span>
+      </div>
+      <pre class="code" id="hvi-raw" style="height:500px"></pre>
+    </div>
+
+    <!-- DIAGNOSTICS -->
+    <div class="panel" id="panel-diag">
+      <div class="card">
+        <h3>Network Diagnostics</h3>
+        <button class="btn success" onclick="runDiagnostics()">🔍 Run Diagnostics</button>
+        <div id="diag-results" style="margin-top:16px">
+          <div class="small" style="color:#888">Click button to run network diagnostics...</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3>System Information</h3>
+        <div id="system-info">
+          <div class="small" style="color:#888">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Constants ---- */
+const CONTROL_FUNCS=["-","DX","Dn","Fn","SFn","PV","PX","SO","SG","LO","LL","TS","FM","TO","HI","CP","EP","GO","FF","MO"];
+const REPLY_FUNCS=["-","Gn","GX","DF","FC","SCn","HC","WI","PC","PR","CG","GR1","SDn","MC","CF","LE","RR","LFn","RF1","RF2","EV","VC","VO","GPn","VQ","CA","CR","CL","CSn","TF","VSn","CO","EC","CS","FR","BDn","TPn","SB","LC","MR","MF","ML"];
+
+const $=s=>document.querySelector(s); 
+const $$=s=>Array.from(document.querySelectorAll(s));
+
+/* ---- State ---- */
+let CONFIG={ip:"",instation_ip:"127.0.0.1",xkop:1,snmp_port:161,rows:[]};
+let STATE={rows:[],test_mode:false,expires:null,last_update:0};
+let HVI_TEXT="";
+let AUTO_REFRESH_INTERVAL=null;
+
+/* ---- Helpers ---- */
+function funcHasIdx(f){ return (f||"").endsWith("n"); }
+
+function makeInput(v,p=""){
+  const i=document.createElement('input');
+  i.className="input";
+  i.value=v||"";
+  i.placeholder=p;
+  return i;
+}
+
+function makeSelect(list,val,cls){
+  const s=document.createElement('select');
+  s.className='select '+(cls||'');
+  list.forEach(f=>{
+    const o=document.createElement('option');
+    o.value=f;
+    o.textContent=f;
+    s.appendChild(o);
+  });
+  s.value=(val&&list.includes(val))?val:"-";
+  return s;
+}
+
+function syncIdx(tr){
+  const iF=tr.querySelector('.in-func').value;
+  const oF=tr.querySelector('.out-func').value;
+  const ii=tr.querySelector('.in-idx');
+  const oi=tr.querySelector('.out-idx');
+  ii.disabled=!funcHasIdx(iF);
+  oi.disabled=!funcHasIdx(oF);
+  if(ii.disabled)ii.value="";
+  if(oi.disabled)oi.value="";
+}
+
+function showNotification(type, message){
+  const notif=document.createElement('div');
+  notif.className=`notification alert ${type}`;
+  notif.textContent=message;
+  document.body.appendChild(notif);
+  setTimeout(()=>notif.remove(), 4000);
+}
+
+function addImportLog(type, message){
+  const container=$("#import-results");
+  const entry=document.createElement('div');
+  entry.className=`log-entry ${type}`;
+  entry.textContent=`[${new Date().toLocaleTimeString()}] ${message}`;
+  container.appendChild(entry);
+  container.scrollTop=container.scrollHeight;
+}
+
+/* ---- Setup Table ---- */
+function renderSetup(){
+  const body=$("#setup-rows"); 
+  body.innerHTML="";
+  
+  CONFIG.rows.forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    
+    // Checkbox
+    const cbTd=document.createElement('td');
+    const cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.className='row-checkbox';
+    cbTd.appendChild(cb);
+    tr.appendChild(cbTd);
+    
+    // NR
+    const nrTd=document.createElement('td');
+    const nr=makeInput(r.nr||(ix+1)); 
+    nr.style.minWidth="70px";
+    nrTd.appendChild(nr);
+    tr.appendChild(nrTd);
+    
+    // Inputs
+    const inpTd=document.createElement('td');
+    inpTd.appendChild(makeInput(r.input||"","Input name"));
+    tr.appendChild(inpTd);
+    
+    const inScnTd=document.createElement('td');
+    inScnTd.appendChild(makeInput(r.in_scn||"","SCN"));
+    tr.appendChild(inScnTd);
+    
+    const inFuncTd=document.createElement('td');
+    const sIn=makeSelect(CONTROL_FUNCS,r.in_func||"-","in-func");
+    inFuncTd.appendChild(sIn);
+    tr.appendChild(inFuncTd);
+    
+    const inIdxTd=document.createElement('td');
+    const iIn=makeInput(r.in_idx||""); 
+    iIn.classList.add("in-idx");
+    inIdxTd.appendChild(iIn);
+    tr.appendChild(inIdxTd);
+    
+    // Outputs
+    const outpTd=document.createElement('td');
+    outpTd.appendChild(makeInput(r.output||"","Output name"));
+    tr.appendChild(outpTd);
+    
+    const outScnTd=document.createElement('td');
+    outScnTd.appendChild(makeInput(r.out_scn||"","SCN"));
+    tr.appendChild(outScnTd);
+    
+    const outFuncTd=document.createElement('td');
+    const sOut=makeSelect(REPLY_FUNCS,r.out_func||"-","out-func");
+    outFuncTd.appendChild(sOut);
+    tr.appendChild(outFuncTd);
+    
+    const outIdxTd=document.createElement('td');
+    const iOut=makeInput(r.out_idx||""); 
+    iOut.classList.add("out-idx");
+    outIdxTd.appendChild(iOut);
+    tr.appendChild(outIdxTd);
+    
+    sIn.onchange=()=>syncIdx(tr); 
+    sOut.onchange=()=>syncIdx(tr); 
+    syncIdx(tr);
+    
+    body.appendChild(tr);
+  });
+  
+  // Render function lists
+  $("#control-funcs-list").innerHTML = CONTROL_FUNCS.filter(f=>f!=="-").map(f=>`<span class="badge">${f}</span>`).join(' ');
+  $("#reply-funcs-list").innerHTML = REPLY_FUNCS.filter(f=>f!=="-").map(f=>`<span class="badge">${f}</span>`).join(' ');
+}
+
+function readSetup(){
+  const out=[];
+  $$("#setup-rows tr").forEach((tr,ix)=>{
+    const inputs=Array.from(tr.querySelectorAll('input:not([type="checkbox"]),select'));
+    if(inputs.length<9) return;
+    const [nr,inp,inScn,inFunc,inIdx,outp,outScn,outFunc,outIdx] = inputs.map(e=>e.value.trim());
+    out.push({nr,input:inp,in_scn:inScn,in_func:inFunc,in_idx:inIdx,output:outp,out_scn:outScn,out_func:outFunc,out_idx:outIdx});
+  });
+  return out;
+}
+
+/* ---- Test Table ---- */
+function renderTest(){
+  const body=$("#test-rows"); 
+  body.innerHTML="";
+  
+  (STATE.rows||[]).forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    
+    const inVal=makeInput((r.in_value??"").toString()); 
+    inVal.style.width="80px";
+    const outVal=makeInput((r.out_value??"").toString()); 
+    outVal.style.width="80px";
+    
+    const btnIn=document.createElement('button'); 
+    btnIn.className="btn success"; 
+    btnIn.textContent="→ XKOP";
+    btnIn.onclick=async()=>{
+      const key=r.nr||r.input||(ix+1).toString();
+      const val=parseInt(inVal.value||"0",10)||0;
+      const res=await fetch("/test/input",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({key,value:val})
+      });
+      if(res.ok){
+        await refreshState(); 
+        renderLive();
+        showNotification('success', `✓ Sent to controller: ${key}=${val}`);
+      } else {
+        showNotification('error', '✗ Test input failed');
+      }
+    };
+    
+    const btnOut=document.createElement('button'); 
+    btnOut.className="btn success"; 
+    btnOut.textContent="→ SNMP";
+    btnOut.onclick=async()=>{
+      const key=r.nr||r.input||(ix+1).toString();
+      const val=parseInt(outVal.value||"0",10)||0;
+      const res=await fetch("/test/output",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({key,value:val})
+      });
+      if(res.ok){
+        await refreshState(); 
+        renderLive();
+        showNotification('success', `✓ Published to SNMP: ${key}=${val}`);
+      } else {
+        showNotification('error', '✗ Test output failed');
+      }
+    };
+    
+    tr.innerHTML=`<td>${r.nr||ix+1}</td><td>${r.input||""}</td><td>${(r.in_scn||"")+' / '+(r.in_func||"-")+' / '+(r.in_idx||"")}</td><td></td><td></td>
+                  <td>${r.output||""}</td><td>${(r.out_scn||"")+' / '+(r.out_func||"-")+' / '+(r.out_idx||"")}</td><td></td><td></td>`;
+    tr.children[3].appendChild(inVal); 
+    tr.children[4].appendChild(btnIn);
+    tr.children[7].appendChild(outVal); 
+    tr.children[8].appendChild(btnOut);
+    
+    body.appendChild(tr);
+  });
+}
+
+function setTestUi(enabled,expires){
+  const pill=$("#test-status"), eta=$("#test-eta");
+  if(enabled){ 
+    pill.textContent="ON"; 
+    pill.className="pill ok"; 
+    if(expires){
+      eta.style.display="inline-block"; 
+      eta.dataset.until=expires;
+    }
+  } else { 
+    pill.textContent="OFF"; 
+    pill.className="pill warn"; 
+    eta.style.display="none"; 
+    delete eta.dataset.until; 
+  }
+}
+
+function tickCountdown(){
+  const eta=$("#test-eta"); 
+  const u=eta.dataset.until; 
+  if(!u) return;
+  const end=new Date(u).getTime(), now=Date.now(); 
+  let s=Math.max(0,Math.floor((end-now)/1000));
+  const hh=String(Math.floor(s/3600)).padStart(2,'0'); 
+  s%=3600; 
+  const mm=String(Math.floor(s/60)).padStart(2,'0'); 
+  s%=60;
+  eta.textContent=`${hh}:${mm}:${String(s).padStart(2,'0')}`;
+}
+
+/* ---- Live Mirror ---- */
+function renderLive(){
+  const body=$("#live-rows"); 
+  body.innerHTML="";
+  
+  (STATE.rows||[]).forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    function td(t){
+      const d=document.createElement('td'); 
+      d.textContent=t??""; 
+      return d;
+    }
+    tr.append(
+      td(r.nr||ix+1),td(r.input),td(r.in_scn),td(r.in_func),td(r.in_idx),td(r.in_value),
+      td(r.output),td(r.out_scn),td(r.out_func),td(r.out_idx),td(r.out_value)
+    );
+    body.appendChild(tr);
+  });
+}
+
+/* ---- Logs ---- */
+async function refreshLogs(){
+  try{
+    const [a,b,c]=await Promise.all([
+      fetch('/log/snmp'),
+      fetch('/log/xkop'),
+      fetch('/log/app')
+    ]);
+    const snmpLogs=await a.json();
+    const xkopLogs=await b.json();
+    const appLogs=await c.json();
+    
+    $("#snmp-log").innerHTML=snmpLogs.map(log=>{
+      let cls='info';
+      if(log.includes('ERR')||log.includes('✗')) cls='error';
+      else if(log.includes('✓')||log.includes('OK')) cls='success';
+      return `<div class="log-entry ${cls}">${log}</div>`;
+    }).join('');
+    
+    $("#xkop-log").innerHTML=xkopLogs.map(log=>{
+      let cls='info';
+      if(log.includes('ERR')||log.includes('✗')) cls='error';
+      else if(log.includes('✓')||log.includes('OK')) cls='success';
+      return `<div class="log-entry ${cls}">${log}</div>`;
+    }).join('');
+    
+    $("#app-log").innerHTML=appLogs.map(log=>{
+      let cls='info';
+      if(log.includes('ERR')||log.includes('✗')) cls='error';
+      else if(log.includes('✓')||log.includes('OK')) cls='success';
+      return `<div class="log-entry ${cls}">${log}</div>`;
+    }).join('');
+  }catch(e){
+    console.error('Failed to refresh logs:', e);
+  }
+}
+
+/* ---- HVI ---- */
+async function importHvi(){
+  const ip=$("#ip").value.trim(); 
+  const n=parseInt($("#xkop").value,10)||1;
+  if(!ip){
+    showNotification('warning', 'Enter controller IP first');
+    return;
+  }
+  
+  showNotification('info', `Fetching HVI from ${ip}...`);
+  
+  try{
+    const res=await fetch(`/hvi?ip=${encodeURIComponent(ip)}&n=${n}`);
+    const txt=await res.text(); 
+    HVI_TEXT=txt; 
+    $("#hvi-raw").textContent=txt; 
+    activate('hvi');
+    showNotification('success', `✓ HVI fetched from ${ip}`);
+  }catch(e){
+    showNotification('error', `✗ Failed to fetch HVI: ${e.message}`);
+  }
+}
+
+function applyHviNames(){
+  const m=/:BEGINMAINTABLE([\s\S]*?):ENDMAINTABLE/mi.exec(HVI_TEXT||""); 
+  if(!m){
+    showNotification('warning', 'No maintenance table found in HVI');
+    return;
+  }
+  
+  const rows=(m[1]||"").split(/\r?\n/).map(s=>s.trim()).filter(s=>s.startsWith(":D;;"));
+  const map={};
+  
+  rows.forEach(line=>{
+    const p=line.split(";"); 
+    if(p.length>=7) {
+      map[p[2]]={input:p[3],output:p[5]};
+    }
+  });
+  
+  let applied=0;
+  CONFIG.rows.forEach(r=>{
+    const t=map[r.nr]; 
+    if(t){
+      if(t.input) r.input=t.input; 
+      if(t.output) r.output=t.output;
+      applied++;
+    }
+  });
+  
+  renderSetup(); 
+  showNotification('success', `✓ Applied names from HVI to ${applied} rows. Save to persist.`);
+}
+
+async function importFromHVIFile(){
+  const fileInput=$("#import-hvi-file");
+  if(!fileInput.files[0]){
+    showNotification('warning', 'Please select an HVI file');
+    return;
+  }
+  
+  try{
+    const text=await fileInput.files[0].text();
+    HVI_TEXT=text;
+    $("#hvi-raw").textContent=text;
+    addImportLog('success', `Loaded HVI file: ${fileInput.files[0].name}`);
+    activate('hvi');
+    showNotification('success', '✓ HVI file loaded. Use "Apply Names" to update rows.');
+  }catch(e){
+    showNotification('error', `✗ Failed to load HVI file: ${e.message}`);
+    addImportLog('error', e.message);
+  }
+}
+
+/* ---- Import/Export ---- */
+async function importFromJSON(){
+  const fileInput=$("#import-json-file");
+  if(!fileInput.files[0]){
+    showNotification('warning', 'Please select a JSON file');
+    return;
+  }
+  
+  try{
+    const text=await fileInput.files[0].text();
+    const imported=JSON.parse(text);
+    CONFIG=imported;
+    await saveConfig(true);
+    addImportLog('success', `Imported configuration with ${CONFIG.rows?.length||0} rows`);
+    showNotification('success', '✓ Configuration imported successfully');
+  }catch(e){
+    showNotification('error', `✗ Import failed: ${e.message}`);
+    addImportLog('error', e.message);
+  }
+}
+
+function exportConfig(){
+  const blob=new Blob([JSON.stringify(CONFIG,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); 
+  const a=document.createElement('a'); 
+  a.href=url; 
+  a.download=`ug405-config-${new Date().toISOString().slice(0,10)}.json`; 
+  a.click(); 
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+  showNotification('success', '✓ Configuration exported');
+}
+
+function exportCSV(){
+  let csv='Nr,Input,In SCN,In Func,In Idx,Output,Out SCN,Out Func,Out Idx\n';
+  CONFIG.rows.forEach(r=>{
+    csv+=`${r.nr||""},${r.input||""},${r.in_scn||""},${r.in_func||""},${r.in_idx||""},${r.output||""},${r.out_scn||""},${r.out_func||""},${r.out_idx||""}\n`;
+  });
+  
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`ug405-rows-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+  showNotification('success', '✓ Rows exported as CSV');
+}
+
+/* ---- Diagnostics ---- */
+async function runDiagnostics(){
+  $("#diag-results").innerHTML='<div class="small" style="color:#888">Running diagnostics...</div>';
+  
+  try{
+    const res=await fetch('/diag/network');
+    const diag=await res.json();
+    
+    let html='<table class="table"><tbody>';
+    for(const [key,value] of Object.entries(diag)){
+      let displayValue=value;
+      let badgeClass='';
+      
+      if(typeof value==='boolean'){
+        displayValue=value?'✓ OK':'✗ FAIL';
+        badgeClass=value?'pill ok':'pill error';
+      }
+      
+      html+=`
+        <tr>
+          <td style="font-weight:600">${key.replace(/_/g,' ')}</td>
+          <td>${badgeClass?`<span class="${badgeClass}">${displayValue}</span>`:displayValue}</td>
+        </tr>
+      `;
+    }
+    html+='</tbody></table>';
+    
+    $("#diag-results").innerHTML=html;
+  }catch(e){
+    $("#diag-results").innerHTML=`<div class="alert error">Failed to run diagnostics: ${e.message}</div>`;
+  }
+}
+
+async function loadSystemInfo(){
+  try{
+    const res=await fetch('/diag');
+    const info=await res.json();
+    
+    let html='<table class="table"><tbody>';
+    for(const [key,value] of Object.entries(info)){
+      const displayValue=typeof value==='object'?JSON.stringify(value,null,2):value;
+      html+=`
+        <tr>
+          <td style="font-weight:600">${key}</td>
+          <td><pre style="margin:0;font-size:.85rem">${displayValue}</pre></td>
+        </tr>
+      `;
+    }
+    html+='</tbody></table>';
+    
+    $("#system-info").innerHTML=html;
+  }catch(e){
+    $("#system-info").innerHTML=`<div class="alert error">Failed to load: ${e.message}</div>`;
+  }
+}
+
+/* ---- Backend I/O ---- */
+async function refreshConfig(){
+  try{
+    const res=await fetch('/config'); 
+    CONFIG=await res.json();
+    $("#ip").value=CONFIG.ip||""; 
+    $("#instation_ip").value=CONFIG.instation_ip||"127.0.0.1";
+    $("#xkop").value=String(CONFIG.xkop||1); 
+    $("#snmp_port").value=String(CONFIG.snmp_port||161);
+    
+    (CONFIG.rows||[]).forEach(r=>{ 
+      if(!CONTROL_FUNCS.includes(r.in_func)) r.in_func="-"; 
+      if(!REPLY_FUNCS.includes(r.out_func)) r.out_func="-"; 
+    });
+    
+    renderSetup();
+  }catch(e){
+    showNotification('error', `✗ Failed to load config: ${e.message}`);
+  }
+}
+
+async function refreshState(){
+  try{
+    const res=await fetch('/state'); 
+    STATE=await res.json();
+    setTestUi(STATE.test_mode, STATE.expires); 
+    renderTest(); 
+    renderLive();
+  }catch(e){
+    console.error('Failed to refresh state:', e);
+  }
+}
+
+async function saveConfig(silent=false){
+  CONFIG.ip=$("#ip").value.trim(); 
+  CONFIG.instation_ip=$("#instation_ip").value.trim()||"127.0.0.1";
+  CONFIG.xkop=parseInt($("#xkop").value,10)||1; 
+  CONFIG.snmp_port=parseInt($("#snmp_port").value,10)||161;
+  CONFIG.rows=readSetup();
+  
+  try{
+    const r=await fetch('/config',{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(CONFIG)
+    });
+    
+    if(!r.ok){
+      showNotification('error', `✗ Save failed: ${await r.text()}`);
+      return;
+    }
+    
+    await refreshConfig(); 
+    await refreshState();
+    if(!silent) showNotification('success', '✓ Configuration saved successfully');
+  }catch(e){
+    showNotification('error', `✗ Save failed: ${e.message}`);
+  }
+}
+
+/* ---- Tabs ---- */
+function activate(id){ 
+  $$(".tab").forEach(t=>t.classList.toggle('active', t.dataset.panel===id)); 
+  $$(".panel").forEach(p=>p.classList.toggle('active', p.id===`panel-${id}`));
+  
+  // Load data when switching to certain tabs
+  if(id==='diag') loadSystemInfo();
+  if(id==='hvi'&&!HVI_TEXT) importHvi();
+}
+
+/* ---- Auto-refresh ---- */
+function toggleAutoRefresh(){
+  const btn=$("#btn-toggle-auto");
+  const status=$("#auto-status");
+  
+  if(AUTO_REFRESH_INTERVAL){
+    clearInterval(AUTO_REFRESH_INTERVAL);
+    AUTO_REFRESH_INTERVAL=null;
+    status.textContent="OFF";
+    showNotification('info', 'Auto-refresh disabled');
+  }else{
+    AUTO_REFRESH_INTERVAL=setInterval(async()=>{
+      await refreshState();
+    }, 2000);
+    status.textContent="ON";
+    showNotification('success', 'Auto-refresh enabled (2s interval)');
+  }
+}
+
+/* ---- Events ---- */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  // Tab switching
+  $$("#tabs .tab").forEach(t=> t.addEventListener('click', ()=> activate(t.dataset.panel)));
+  
+  // Setup actions
+  $("#btn-add-row").onclick=()=>{
+    CONFIG.rows.push({
+      nr:String(CONFIG.rows.length+1),
+      input:"",in_scn:"",in_func:"-",in_idx:"",
+      output:"",out_scn:"",out_func:"-",out_idx:""
+    }); 
+    renderSetup();
+  };
+  
+  $("#btn-delete-selected").onclick=()=>{
+    const checked=$$(".row-checkbox:checked");
+    if(checked.length===0){
+      showNotification('warning', 'No rows selected');
+      return;
+    }
+    if(confirm(`Delete ${checked.length} selected row(s)?`)){
+      const indices=checked.map(cb=>Array.from(cb.closest('tbody').children).indexOf(cb.closest('tr')));
+      CONFIG.rows=CONFIG.rows.filter((_,i)=>!indices.includes(i));
+      renderSetup();
+      showNotification('success', `✓ Deleted ${checked.length} row(s)`);
+    }
+  };
+  
+  $("#btn-clear-rows").onclick=()=>{ 
+    if(confirm("Clear all rows?")){ 
+      CONFIG.rows=[]; 
+      renderSetup();
+      showNotification('success', '✓ All rows cleared');
+    } 
+  };
+  
+  $("#select-all").onclick=function(){
+    $$(".row-checkbox").forEach(cb=>cb.checked=this.checked);
+  };
+  
+  // Config actions
+  $("#btn-save").onclick=()=>saveConfig();
+  $("#btn-export").onclick=exportConfig;
+  $("#file-load").addEventListener('change',e=>{
+    const f=e.target.files[0]; 
+    if(f){
+      const rd=new FileReader(); 
+      rd.onload=async()=>{
+        try{
+          CONFIG=JSON.parse(rd.result); 
+          await saveConfig(true);
+          showNotification('success', '✓ Configuration loaded');
+        }catch{
+          showNotification('error', '✗ Invalid config file');
+        }
+      }; 
+      rd.readAsText(f);
+    }
+    e.target.value="";
+  });
+  
+  // HVI actions
+  $("#btn-import-hvi").onclick=importHvi;
+  $("#btn-fetch-hvi").onclick=importHvi;
+  $("#btn-apply-hvi").onclick=applyHviNames;
+  $("#btn-refresh-hvi").onclick=importHvi;
+  
+  // Test mode actions
+  $("#btn-test-on").onclick=async()=>{
+    await fetch('/test/mode',{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({enabled:true})
+    }); 
+    await refreshState();
+    showNotification('warning', '⚠️ Test Mode ENABLED');
+  };
+  
+  $("#btn-test-off").onclick=async()=>{
+    await fetch('/test/mode',{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({enabled:false})
+    }); 
+    await refreshState();
+    showNotification('success', '✓ Test Mode DISABLED');
+  };
+  
+  // Live mirror actions
+  $("#btn-refresh-live").onclick=refreshState;
+  $("#btn-toggle-auto").onclick=toggleAutoRefresh;
+  
+  // Initial load
+  await refreshConfig(); 
+  await refreshState(); 
+  await refreshLogs();
+  
+  // Auto-refresh logs
+  setInterval(refreshLogs,3000);
+  
+  // Countdown ticker
+  setInterval(tickCountdown,1000);
+});
+</script>
+</body>
+</html><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>UG405 – XKOP Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#282a32; --muted:#686b87; --action:#404089; --accent:#434ce8;
+  --border:#eff1f6; --bg:#fff; --bg2:#fdfcff; --bg3:#ecf3fe;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0; background:var(--bg2); color:var(--text); font-family:"Be Vietnam Pro",system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.wrapper{max-width:1280px;margin:0 auto;padding:16px}
+.header{
+  position:sticky; top:8px; z-index:5;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+  display:flex; align-items:center; gap:14px; justify-content:space-between;
+}
+.header-left,.header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.label{font-size:.82rem; color:var(--muted)}
+.input,.select{
+  height:40px; border:2px solid var(--border); background:var(--bg);
+  padding:0 10px; border-radius:8px; font-size:.95rem; color:#404089; min-width:150px
+}
+.select{padding-right:28px} .input:focus,.select:focus{outline:none;border-color:var(--accent)}
+.btn{
+  height:40px; padding:0 14px; border-radius:8px; background:var(--bg); border:2px solid var(--border);
+  cursor:pointer; font-weight:600; color:#404089; transition:.15s
+}
+.btn:hover{border-color:var(--accent); color:var(--accent)}
+.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+.tabs{display:flex; gap:10px; overflow:auto; margin:14px 0 8px; padding:2px; border-bottom:1px solid var(--border)}
+.tab{padding:10px 12px; border-bottom:3px solid transparent; font-weight:600; color:#404089; cursor:pointer}
+.tab.active{color:var(--accent); border-bottom-color:var(--accent); background:var(--bg); border-radius:8px 8px 0 0}
+.panels{border:1px solid var(--border); background:var(--bg); border-radius:0 10px 10px 10px; max-height:calc(100vh - 170px); overflow:auto}
+.panel{display:none; padding:12px} .panel.active{display:block}
+.table{width:100%; border-collapse:separate; border-spacing:0; min-width:920px}
+.table th,.table td{padding:10px; border-bottom:1px solid var(--border); font-size:.93rem}
+.table th{color:#686b87; background:#f7f7ff; font-weight:600}
+.small{font-size:.82rem; color:#686b87}
+.code{font-family:ui-monospace,Consolas,Menlo,monospace; background:#0e1116; color:#c9d1d9; border:1px solid #1f2630; border-radius:8px; padding:10px; height:260px; overflow:auto}
+.pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-weight:600;font-size:.85rem}
+.pill.ok{background:#eaf8f1; color:#127a4a} .pill.warn{background:#fff7e1; color:#9a6a00}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3b43d4;font-size:.78rem}
+input[disabled],select[disabled]{background:#f5f6fb;color:#9aa1b5}
+.row-actions{display:flex; gap:6px; flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div>
+        <div class="label">Controller IP</div>
+        <input id="ip" class="input" placeholder="e.g. 172.18.1.107">
+      </div>
+      <div>
+        <div class="label">Instation</div>
+        <input id="instation_ip" class="input" placeholder="e.g. 127.0.0.1">
+      </div>
+      <div>
+        <div class="label">XKOP</div>
+        <select id="xkop" class="select">
+          <option value="1">XKOP1 (8001)</option>
+          <option value="2">XKOP2 (8002)</option>
+          <option value="3">XKOP3 (8003)</option>
+          <option value="4">XKOP4 (8004)</option>
+        </select>
+      </div>
+      <div>
+        <div class="label">SNMP Port</div>
+        <input id="snmp_port" type="number" class="input" value="161" min="1" max="65535">
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn" id="btn-import-hvi">Import (HVI)</button>
+      <button class="btn primary" id="btn-save">Save Config</button>
+      <label class="btn" for="file-load">Load Config</label>
+      <input id="file-load" type="file" accept="application/json" style="display:none">
+      <button class="btn" id="btn-export">Export Config</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-panel="setup">Setup</div>
+    <div class="tab" data-panel="test">Test Mode</div>
+    <div class="tab" data-panel="live">Live Mirror</div>
+    <div class="tab" data-panel="log-snmp">SNMP Log</div>
+    <div class="tab" data-panel="log-xkop">XKOP Log</div>
+    <div class="tab" data-panel="log-app">App Log</div>
+    <div class="tab" data-panel="hvi">HVI Viewer</div>
+  </div>
+
+  <div class="panels">
+    <!-- SETUP -->
+    <div class="panel active" id="panel-setup">
+      <div class="small">Inputs go to controller (XKOP). Outputs come from controller (XKOP) and are sent to instation (SNMP).</div>
+      <table class="table" id="setup-table">
+        <thead>
+          <tr>
+            <th style="width:60px">NR</th>
+            <th>Input</th><th>SCN (in)</th><th>Func (in)</th><th>Idx (in)</th>
+            <th>Output</th><th>SCN (out)</th><th>Func (out)</th><th>Idx (out)</th>
+          </tr>
+        </thead>
+        <tbody id="setup-rows"></tbody>
+      </table>
+      <div class="row-actions" style="margin-top:10px">
+        <button class="btn" id="btn-add-row">Add Row</button>
+        <button class="btn" id="btn-clear-rows">Clear All</button>
+        <span class="small">Idx is enabled only if function ends with “n”. Default func is “-”.</span>
+      </div>
+    </div>
+
+    <!-- TEST MODE -->
+    <div class="panel" id="panel-test">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600">Test Mode</div>
+          <div class="small">When ON, auto routing pauses. Use per-row buttons: Input→XKOP, Output→SNMP. Auto-off after 1 hour.</div>
+        </div>
+        <div class="row-actions">
+          <span id="test-status" class="pill warn">OFF</span>
+          <span id="test-eta" class="badge" style="display:none">00:00:00</span>
+          <button class="btn" id="btn-test-on">Enable</button>
+          <button class="btn" id="btn-test-off">Disable</button>
+        </div>
+      </div>
+      <table class="table" style="margin-top:10px">
+        <thead>
+          <tr>
+            <th style="width:56px">NR</th>
+            <th>Input</th><th>SCN/Func/Idx (in)</th><th>Value</th><th>Action</th>
+            <th>Output</th><th>SCN/Func/Idx (out)</th><th>Value</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="test-rows"></tbody>
+      </table>
+    </div>
+
+    <!-- LIVE -->
+    <div class="panel" id="panel-live">
+      <div class="small">Read-only snapshot.</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:60px">NR</th>
+            <th>Input</th><th>SCN</th><th>Func</th><th>Idx</th><th>In Val</th>
+            <th>Output</th><th>SCN</th><th>Func</th><th>Idx</th><th>Out Val</th>
+          </tr>
+        </thead>
+        <tbody id="live-rows"></tbody>
+      </table>
+    </div>
+
+    <!-- LOGS -->
+    <div class="panel" id="panel-log-snmp"><div class="small">SNMP activity</div><pre class="code" id="snmp-log"></pre></div>
+    <div class="panel" id="panel-log-xkop"><div class="small">XKOP activity</div><pre class="code" id="xkop-log"></pre></div>
+    <div class="panel" id="panel-log-app"><div class="small">App status</div><pre class="code" id="app-log"></pre></div>
+
+    <!-- HVI -->
+    <div class="panel" id="panel-hvi">
+      <div class="row-actions" style="margin-bottom:8px">
+        <button class="btn" id="btn-apply-hvi">Apply names from HVI</button>
+        <span class="small">Seeds Input/Output names from maintenance table.</span>
+      </div>
+      <pre class="code" id="hvi-raw"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Func lists ---- */
+const CONTROL_FUNCS=["-","DX","Dn","Fn","SFn","PV","PX","SO","SG","LO","LL","TS","FM","TO","HI","CP","EP","GO","FF","MO"];
+const REPLY_FUNCS=["-","Gn","GX","DF","FC","SCn","HC","WI","PC","PR","CG","GR1","SDn","MC","CF","LE","RR","LFn","RF1","RF2","EV","VC","VO","GPn","VQ","CA","CR","CL","CSn","TF","VSn","CO","EC","CS","FR","BDn","TPn","SB","LC","MR","MF","ML"];
+const $=s=>document.querySelector(s); const $$=s=>Array.from(document.querySelectorAll(s));
+
+let CONFIG={ip:"",instation_ip:"127.0.0.1",xkop:1,snmp_port:161,rows:[]};
+let STATE={rows:[],test_mode:false,expires:null,last_update:0};
+let HVI_TEXT="";
+
+/* ---- helpers ---- */
+function funcHasIdx(f){ return (f||"").endsWith("n"); }
+function makeInput(v,p=""){const i=document.createElement('input');i.className="input";i.value=v||"";i.placeholder=p;return i;}
+function makeSelect(list,val,cls){const s=document.createElement('select');s.className='select '+(cls||'');list.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;s.appendChild(o)});s.value=(val&&list.includes(val))?val:"-";return s;}
+function syncIdx(tr){const iF=tr.querySelector('.in-func').value,oF=tr.querySelector('.out-func').value;const ii=tr.querySelector('.in-idx'),oi=tr.querySelector('.out-idx');ii.disabled=!funcHasIdx(iF);oi.disabled=!funcHasIdx(oF);if(ii.disabled)ii.value="";if(oi.disabled)oi.value="";}
+
+/* ---- Setup table ---- */
+function renderSetup(){
+  const body=$("#setup-rows"); body.innerHTML="";
+  CONFIG.rows.forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    const nr=makeInput(r.nr||(ix+1)); nr.style.minWidth="60px";
+    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;
+    tr.children[0].appendChild(nr);
+    tr.children[1].appendChild(makeInput(r.input||"","Input name"));
+    tr.children[2].appendChild(makeInput(r.in_scn||""));
+    const sIn=makeSelect(CONTROL_FUNCS,r.in_func||"-","in-func"); tr.children[3].appendChild(sIn);
+    const iIn=makeInput(r.in_idx||""); iIn.classList.add("in-idx"); tr.children[4].appendChild(iIn);
+    tr.children[5].appendChild(makeInput(r.output||"","Output name"));
+    tr.children[6].appendChild(makeInput(r.out_scn||""));
+    const sOut=makeSelect(REPLY_FUNCS,r.out_func||"-","out-func"); tr.children[7].appendChild(sOut);
+    const iOut=makeInput(r.out_idx||""); iOut.classList.add("out-idx"); tr.children[8].appendChild(iOut);
+    sIn.onchange=()=>syncIdx(tr); sOut.onchange=()=>syncIdx(tr); syncIdx(tr);
+    body.appendChild(tr);
+  });
+}
+function readSetup(){
+  const out=[]; $$("#setup-rows tr").forEach((tr,ix)=>{
+    const [nr,inp,inScn,inFunc,inIdx,outp,outScn,outFunc,outIdx] =
+      Array.from(tr.querySelectorAll('input,select')).map(e=>e.value.trim());
+    out.push({nr,input:inp,in_scn:inScn,in_func:inFunc,in_idx:inIdx,output:outp,out_scn:outScn,out_func:outFunc,out_idx:outIdx});
+  }); return out;
+}
+
+/* ---- Test table ---- */
+function renderTest(){
+  const body=$("#test-rows"); body.innerHTML="";
+  (STATE.rows||[]).forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    const inVal=makeInput((r.in_value??"").toString()); inVal.style.width="80px";
+    const outVal=makeInput((r.out_value??"").toString()); outVal.style.width="80px";
+    const btnIn=document.createElement('button'); btnIn.className="btn"; btnIn.textContent="Send to Controller (XKOP)";
+    btnIn.onclick=async()=>{const key=r.nr||r.input||(ix+1).toString();const val=parseInt(inVal.value||"0",10)||0;
+      const res=await fetch("/test/input",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value:val})});
+      if(res.ok){await refreshState(); renderLive();} else alert("Test input failed");};
+    const btnOut=document.createElement('button'); btnOut.className="btn"; btnOut.textContent="Send to Instation (SNMP)";
+    btnOut.onclick=async()=>{const key=r.nr||r.input||(ix+1).toString();const val=parseInt(outVal.value||"0",10)||0;
+      const res=await fetch("/test/output",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value:val})});
+      if(res.ok){await refreshState(); renderLive();} else alert("Test output failed");};
+    tr.innerHTML=`<td>${r.nr||ix+1}</td><td>${r.input||""}</td><td>${(r.in_scn||"")+' / '+(r.in_func||"-")+' / '+(r.in_idx||"")}</td><td></td><td></td>
+                  <td>${r.output||""}</td><td>${(r.out_scn||"")+' / '+(r.out_func||"-")+' / '+(r.out_idx||"")}</td><td></td><td></td>`;
+    tr.children[3].appendChild(inVal); tr.children[4].appendChild(btnIn);
+    tr.children[7].appendChild(outVal); tr.children[8].appendChild(btnOut);
+    body.appendChild(tr);
+  });
+}
+function setTestUi(enabled,expires){
+  const pill=$("#test-status"), eta=$("#test-eta");
+  if(enabled){ pill.textContent="ON"; pill.className="pill ok"; if(expires){eta.style.display="inline-block"; eta.dataset.until=expires;}}
+  else{ pill.textContent="OFF"; pill.className="pill warn"; eta.style.display="none"; delete eta.dataset.until; }
+}
+function tickCountdown(){
+  const eta=$("#test-eta"); const u=eta.dataset.until; if(!u) return;
+  const end=new Date(u).getTime(), now=Date.now(); let s=Math.max(0,Math.floor((end-now)/1000));
+  const hh=String(Math.floor(s/3600)).padStart(2,'0'); s%=3600; const mm=String(Math.floor(s/60)).padStart(2,'0'); s%=60;
+  eta.textContent=`${hh}:${mm}:${String(s).padStart(2,'0')}`;
+}
+
+/* ---- Live mirror ---- */
+function renderLive(){
+  const body=$("#live-rows"); body.innerHTML="";
+  (STATE.rows||[]).forEach((r,ix)=>{
+    const tr=document.createElement('tr');
+    function td(t){const d=document.createElement('td'); d.textContent=t??""; return d;}
+    tr.append(td(r.nr||ix+1),td(r.input),td(r.in_scn),td(r.in_func),td(r.in_idx),td(r.in_value),
+              td(r.output),td(r.out_scn),td(r.out_func),td(r.out_idx),td(r.out_value));
+    body.appendChild(tr);
+  });
+}
+
+/* ---- Logs ---- */
+async function refreshLogs(){
+  const [a,b,c]=await Promise.all([fetch('/log/snmp'),fetch('/log/xkop'),fetch('/log/app')]);
+  $("#snmp-log").textContent=(await a.json()).join("\n");
+  $("#xkop-log").textContent=(await b.json()).join("\n");
+  $("#app-log").textContent =(await c.json()).join("\n");
+}
+
+/* ---- HVI ---- */
+async function importHvi(){
+  const ip=$("#ip").value.trim(); const n=parseInt($("#xkop").value,10)||1;
+  if(!ip){alert("Enter controller IP first"); return;}
+  const res=await fetch(`/hvi?ip=${encodeURIComponent(ip)}&n=${n}`);
+  const txt=await res.text(); HVI_TEXT=txt; $("#hvi-raw").textContent=txt; activate('hvi');
+}
+function applyHviNames(){
+  // Basic :BEGINMAINTABLE parse to seed names
+  const m=/:BEGINMAINTABLE([\s\S]*?):ENDMAINTABLE/mi.exec(HVI_TEXT||""); if(!m){alert("No maintenance table found"); return;}
+  const rows=(m[1]||"").split(/\r?\n/).map(s=>s.trim()).filter(s=>s.startsWith(":D;;"));
+  const map={}; rows.forEach(line=>{const p=line.split(";"); if(p.length>=7) map[p[2]]={input:p[3],output:p[5]};});
+  CONFIG.rows.forEach(r=>{const t=map[r.nr]; if(t){if(t.input) r.input=t.input; if(t.output) r.output=t.output;}});
+  renderSetup(); alert("Applied names from HVI. Save to persist.");
+}
+
+/* ---- Backend I/O ---- */
+async function refreshConfig(){
+  const res=await fetch('/config'); CONFIG=await res.json();
+  $("#ip").value=CONFIG.ip||""; $("#instation_ip").value=CONFIG.instation_ip||"127.0.0.1";
+  $("#xkop").value=String(CONFIG.xkop||1); $("#snmp_port").value=String(CONFIG.snmp_port||161);
+  (CONFIG.rows||[]).forEach(r=>{ if(!CONTROL_FUNCS.includes(r.in_func)) r.in_func="-"; if(!REPLY_FUNCS.includes(r.out_func)) r.out_func="-"; });
+  renderSetup();
+}
+async function refreshState(){
+  const res=await fetch('/state'); STATE=await res.json();
+  setTestUi(STATE.test_mode, STATE.expires); renderTest(); renderLive();
+}
+async function saveConfig(){
+  CONFIG.ip=$("#ip").value.trim(); CONFIG.instation_ip=$("#instation_ip").value.trim()||"127.0.0.1";
+  CONFIG.xkop=parseInt($("#xkop").value,10)||1; CONFIG.snmp_port=parseInt($("#snmp_port").value,10)||161;
+  CONFIG.rows=readSetup();
+  const r=await fetch('/config',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(CONFIG)});
+  if(!r.ok){alert("Save failed: "+await r.text()); return;}
+  await refreshConfig(); await refreshState(); alert("Saved.");
+}
+function exportConfig(){
+  const blob=new Blob([JSON.stringify(CONFIG,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download="ug405-config.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+function loadConfigFile(f){
+  const rd=new FileReader(); rd.onload=async()=>{try{CONFIG=JSON.parse(rd.result); await saveConfig();}catch{alert("Invalid config");}}; rd.readAsText(f);
+}
+
+/* ---- Tabs ---- */
+function activate(id){ $$(".tab").forEach(t=>t.classList.toggle('active', t.dataset.panel===id)); $$(".panel").forEach(p=>p.classList.toggle('active', p.id===`panel-${id}`)); }
+
+/* ---- Events ---- */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  $$("#tabs .tab").forEach(t=> t.addEventListener('click', ()=> activate(t.dataset.panel)));
+  $("#btn-add-row").onclick=()=>{CONFIG.rows.push({nr:String(CONFIG.rows.length+1),input:"",in_scn:"",in_func:"-",in_idx:"",output:"",out_scn:"",out_func:"-",out_idx:""}); renderSetup();};
+  $("#btn-clear-rows").onclick=()=>{ if(confirm("Clear all rows?")){ CONFIG.rows=[]; renderSetup(); } };
+  $("#btn-save").onclick=saveConfig; $("#btn-export").onclick=exportConfig;
+  $("#file-load").addEventListener('change',e=>{const f=e.target.files[0]; if(f) loadConfigFile(f); e.target.value="";});
+  $("#btn-import-hvi").onclick=importHvi; $("#btn-apply-hvi").onclick=applyHviNames;
+  $("#btn-test-on").onclick=async()=>{await fetch('/test/mode',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:true})}); await refreshState();}
+  $("#btn-test-off").onclick=async()=>{await fetch('/test/mode',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:false})}); await refreshState();}
+
+  await refreshConfig(); await refreshState(); await refreshLogs();
+  setInterval(refreshLogs,1500); setInterval(async()=>{await refreshState();},1500); setInterval(tickCountdown,1000);
+});
+</script>
+</body>
+</html>
