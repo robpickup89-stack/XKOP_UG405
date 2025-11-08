@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-XKOP Tool - CLIENT MODE (COMPLETE with web interface)
+XKOP Tool - CLIENT MODE
+Client connects to controller using XKOPMV protocol (UDP)
+- Listens for data packets from controller (updates outputs)
+- Sends data packets to controller when SNMP SET is received (sends inputs)
+- PreIndex: 1 for ALL inputs, 0 for ALL outputs
 """
 
 import os, sys, socket, struct, threading, time, datetime, urllib.request, json
@@ -43,7 +47,7 @@ class Row(TypedDict, total=False):
     nr: str; input: str; in_scn: str; in_func: str; in_idx: str; in_value: Optional[int]
     output: str; out_scn: str; out_func: str; out_idx: str; out_value: Optional[int]
 
-STATE = {"rows": [], "by_key": {}, "last_update": time.time(), "xkop_connected": False}
+STATE = {"rows": [], "by_key": {}, "last_update": time.time()}
 TEST_MODE = False
 TEST_MODE_EXPIRY: Optional[datetime.datetime] = None
 
@@ -77,10 +81,9 @@ def update_out_value(key: str, value):
 
 # ===================== XKOP =====================
 XKOP_HDR1, XKOP_HDR2, XKOP_TYPE_DATA = 0xCA, 0x35, 0x00
-XKOP_LOCAL_PORT = 8001
-XKOP_CONTROLLER_ADDR = ("127.0.0.1", 8001)
-xkop_sock: Optional[socket.socket] = None
-xkop_running = False
+XKOP_LISTEN_ADDR = ("0.0.0.0", 8001)
+XKOP_TX_ADDR     = ("127.0.0.1", 8001)
+xkop_listener_sock: Optional[socket.socket] = None
 
 CRC_TABLE = [
     0x0000,0x0f89,0x1f12,0x109b,0x3e24,0x31ad,0x2136,0x2ebf,0x7c48,0x73c1,0x635a,0x6cd3,0x426c,0x4de5,0x5d7e,0x52f7,
@@ -131,103 +134,57 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         if idx!=0xFF: recs.append((idx,val))
     return recs
 
-def udp_send(data: bytes):
-    global xkop_sock, XKOP_CONTROLLER_ADDR
-    if xkop_sock:
-        try:
-            xkop_sock.sendto(data, XKOP_CONTROLLER_ADDR)
-            log_xkop(f"TX to {XKOP_CONTROLLER_ADDR}: {len(data)} bytes")
-        except Exception as e:
-            log_xkop(f"TX FAILED: {e}")
+def udp_send(data: bytes, target: Tuple[str,int]):
+    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.sendto(data, target)
+        log_xkop(f"TX to {target}: {len(data)} bytes")
+    except Exception as e:
+        log_xkop(f"TX FAILED to {target}: {e}")
+    finally: s.close()
 
-def xkop_client_loop():
-    """CLIENT MODE: Send keepalive + receive responses"""
-    global xkop_sock, xkop_running, XKOP_CONTROLLER_ADDR, XKOP_LOCAL_PORT, STATE
-    
-    xkop_running = True
-    last_keepalive = 0
-    keepalive_interval = 2.0
-    
-    while xkop_running:
+def xkop_listener():
+    """Receive XKOP from controller, update output values"""
+    global xkop_listener_sock
+    while True:
         try:
-            if xkop_sock is None:
-                xkop_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                xkop_sock.bind(("0.0.0.0", XKOP_LOCAL_PORT))
-                xkop_sock.settimeout(0.5)
-                log_xkop(f"CLIENT: Bound to 0.0.0.0:{XKOP_LOCAL_PORT}")
-                log_xkop(f"CLIENT: Will send to {XKOP_CONTROLLER_ADDR[0]}:{XKOP_CONTROLLER_ADDR[1]}")
-            
-            now = time.time()
-            if now - last_keepalive >= keepalive_interval:
-                records = []
-                try:
-                    with STATE_LOCK:
-                        rows = STATE["rows"][:]
-                    
+            sock=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind(XKOP_LISTEN_ADDR); sock.settimeout(1.0)
+            xkop_listener_sock=sock
+            log_xkop(f"Listening UDP {XKOP_LISTEN_ADDR[0]}:{XKOP_LISTEN_ADDR[1]}")
+            while True:
+                try: data,addr=sock.recvfrom(2048)
+                except socket.timeout: continue
+                except OSError: break
+                if not data or len(data)!=17: continue
+                recs=xkop_parse_data(data)
+                if recs is None: continue
+                log_xkop(f"RX from {addr}: {recs}")
+
+                with STATE_LOCK:
+                    rows = STATE["rows"][:]
+
+                for (idx,val) in recs:
                     for r in rows:
                         try:
-                            if r.get("in_func") and r.get("in_func") != "-":
-                                idx_str = str(r.get("in_idx", "")).strip()
-                                if not idx_str:
-                                    continue
-                                idx = int(idx_str.split(",")[0])
-                                val = r.get("in_value") or 0
-                                records.append((idx, val))
-                                if len(records) >= 4:
-                                    break
-                        except Exception as e:
+                            out_idx_str = str(r.get("out_idx","")).split(",")[0]
+                            if not out_idx_str:
+                                continue
+                            ridx = int(out_idx_str)
+                        except:
                             continue
-                except Exception as e:
-                    log_xkop(f"Error accessing rows: {e}")
-                
-                if not records:
-                    records = [(1, 0)]
-                
-                pkt = xkop_build_data(records[:4])
-                udp_send(pkt)
-                last_keepalive = now
-                
-                with STATE_LOCK:
-                    STATE["xkop_connected"] = True
-            
-            try:
-                data, addr = xkop_sock.recvfrom(2048)
-                if len(data) == 17:
-                    recs = xkop_parse_data(data)
-                    if recs is not None:
-                        log_xkop(f"RX from {addr}: {recs}")
-                        
-                        try:
-                            with STATE_LOCK:
-                                rows = STATE["rows"][:]
-                            
-                            for (idx, val) in recs:
-                                for r in rows:
-                                    try:
-                                        out_idx_str = str(r.get("out_idx", "")).strip()
-                                        if not out_idx_str:
-                                            continue
-                                        ridx = int(out_idx_str.split(",")[0])
-                                        if ridx == idx:
-                                            key = r.get("nr") or r.get("output") or ""
-                                            if key:
-                                                update_out_value(key, val)
-                                                log_xkop(f"  Updated output {r.get('nr','')} (idx={idx}) = {val}")
-                                    except:
-                                        continue
-                        except Exception as e:
-                            log_xkop(f"Error updating outputs: {e}")
-            except socket.timeout:
-                pass
-            
+
+                        if ridx == idx:
+                            key = r.get("nr") or r.get("output") or ""
+                            update_out_value(key, val)
+                            log_xkop(f"  Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+
         except Exception as e:
-            log_xkop(f"CLIENT ERROR: {e}")
-            if xkop_sock:
-                try:
-                    xkop_sock.close()
-                except:
-                    pass
-                xkop_sock = None
+            log_xkop(f"ERR {e}")
+        finally:
+            try:
+                if xkop_listener_sock: xkop_listener_sock.close()
+            except: pass
             time.sleep(1.0)
 
 # ===================== UTMC OID Functions =====================
@@ -314,7 +271,8 @@ def snmp_get():
     direction, func, preIndex, scn = parsed
     if direction != 'out':
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
-    if preIndex not in [0, 1]:
+    # ✅ ALL outputs must have preIndex = 0
+    if preIndex != 0:
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
     func_info = REPLY_FUNCS.get(func)
     if not func_info:
@@ -350,46 +308,70 @@ def snmp_set():
     value = int(data.get("value", 0))
     parsed = parse_utmc_oid(oid)
     if not parsed:
-        return jsonify({"ok": False})
+        return jsonify({"ok": False, "error": "not UTMC OID"})
     direction, func, preIndex, scn = parsed
-    if direction != 'in' or preIndex != 1:
-        return jsonify({"ok": False})
+    if direction != 'in':
+        return jsonify({"ok": False, "error": "wrong direction"})
+    # ✅ ALL inputs must have preIndex = 1
+    if preIndex != 1:
+        log_snmp(f"SET {oid} = {value} IGNORED (inputs require preIndex=1)")
+        return jsonify({"ok": False, "error": "invalid preIndex"})
     func_info = CONTROL_FUNCS.get(func)
     if not func_info:
-        return jsonify({"ok": False})
+        return jsonify({"ok": False, "error": "unknown function"})
     _, kind = func_info
     rows = rows_matching('in', func, scn)
     if not rows:
-        return jsonify({"ok": False})
-    log_snmp(f"SET {oid} = {value}")
+        return jsonify({"ok": False, "error": "not configured"})
+
+    log_snmp(f"SET {oid} ({func} SCN={scn}) = {value} → {len(rows)} rows")
+
     if kind == "bitmask":
+        xkop_records = []
+
         for r in rows:
             try:
                 idx = int(str(r.get("in_idx", "")).split(",")[0])
                 bit = max(0, idx - 1)
                 bit_val = 1 if (value & (1 << bit)) else 0
+
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, bit_val)
-                if not TEST_MODE:
-                    pkt = xkop_build_data([(idx, bit_val)])
-                    udp_send(pkt)
-            except:
+                    log_snmp(f"  Row {r.get('nr','')} idx={idx} bit={bit} val={bit_val}")
+
+                xkop_records.append((idx, bit_val))
+            except Exception as e:
+                log_snmp(f"  Error: {e}")
                 continue
+
+        if xkop_records and not TEST_MODE:
+            for i in range(0, len(xkop_records), 4):
+                batch = xkop_records[i:i+4]
+                pkt = xkop_build_data(batch)
+                udp_send(pkt, XKOP_TX_ADDR)
+                log_xkop(f"TX bitmask {func}: {batch}")
+
     else:
+        # Scalar - just use first matching row
         if rows:
             r = rows[0]
             try:
                 idx = int(str(r.get("in_idx", "")).split(",")[0])
+
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, value)
+                    log_snmp(f"  Row {r.get('nr','')} idx={idx} val={value}")
+
                 if not TEST_MODE:
                     pkt = xkop_build_data([(idx, value)])
-                    udp_send(pkt)
-            except:
-                pass
-    return jsonify({"ok": True})
+                    udp_send(pkt, XKOP_TX_ADDR)
+                    log_xkop(f"TX scalar {func}: idx={idx}, val={value}")
+            except Exception as e:
+                log_snmp(f"  Error: {e}")
+
+    return jsonify({"ok": True, "oid": oid, "value": value})
 
 # ===================== HTTP Endpoints with Full Web UI =====================
 @app.get("/")
@@ -416,20 +398,21 @@ def _as_int(v,d):
 
 @app.post("/config")
 def save_config():
-    global CONFIG, XKOP_CONTROLLER_ADDR, XKOP_LOCAL_PORT
+    global CONFIG, XKOP_LISTEN_ADDR, XKOP_TX_ADDR, xkop_listener_sock
     cfg=request.get_json(force=True) or {}
     xkop_n=_as_int(cfg.get("xkop") or 1,1)
     xkop_prt=8000 + xkop_n
     inst_prt=_as_int(cfg.get("snmp_port") or 161,161)
     CONFIG={"ip": (cfg.get("ip") or "").strip(), "instation_ip": (cfg.get("instation_ip") or "127.0.0.1").strip(),
         "xkop": xkop_n, "snmp_port": inst_prt, "rows": cfg.get("rows", [])}
-    XKOP_LOCAL_PORT = xkop_prt
-    XKOP_CONTROLLER_ADDR=(CONFIG["ip"] or "127.0.0.1", xkop_prt)
-    with STATE_LOCK: 
-        seed_rows_from_config_locked()
-        STATE["xkop_connected"] = False
-    log_app(f"CFG: Will send to controller {XKOP_CONTROLLER_ADDR[0]}:{XKOP_CONTROLLER_ADDR[1]}")
-    return jsonify({"ok":True,"controller":list(XKOP_CONTROLLER_ADDR),"local_port":XKOP_LOCAL_PORT})
+    XKOP_LISTEN_ADDR=("0.0.0.0", xkop_prt)
+    XKOP_TX_ADDR=(CONFIG["ip"] or "127.0.0.1", xkop_prt)
+    with STATE_LOCK: seed_rows_from_config_locked()
+    try:
+        if xkop_listener_sock: xkop_listener_sock.close()
+    except: pass
+    log_app(f"CFG: controller {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
+    return jsonify({"ok":True,"listen":list(XKOP_LISTEN_ADDR),"tx":list(XKOP_TX_ADDR)})
 
 @app.get("/config")
 def get_config(): return jsonify(CONFIG)
@@ -441,7 +424,6 @@ def get_state():
         TEST_MODE=False; TEST_MODE_EXPIRY=None
     with STATE_LOCK:
         return jsonify({"rows":STATE["rows"],"last_update":STATE["last_update"],"test_mode":TEST_MODE,
-                        "xkop_connected":STATE["xkop_connected"],
                         "expires": TEST_MODE_EXPIRY.isoformat() if TEST_MODE_EXPIRY else None})
 
 @app.get("/test/mode")
@@ -469,7 +451,7 @@ def test_input():
     except: idx_byte=0
     update_in_value(key,value)
     pkt=xkop_build_data([(idx_byte,value)])
-    udp_send(pkt)
+    udp_send(pkt, XKOP_TX_ADDR)
     return jsonify({"ok":True})
 
 @app.post("/test/output")
@@ -511,9 +493,8 @@ def hvi():
 
 @app.get("/diag")
 def diag():
-    return jsonify({"mode":"CLIENT","python_exe":sys.executable,"controller":list(XKOP_CONTROLLER_ADDR),
-        "local_port":XKOP_LOCAL_PORT,"xkop_connected":STATE.get("xkop_connected",False),
-        "rows_count":len(STATE["rows"])})
+    return jsonify({"mode":"CLIENT","python_exe":sys.executable,"listen":list(XKOP_LISTEN_ADDR),
+        "tx":list(XKOP_TX_ADDR),"rows_count":len(STATE["rows"])})
 
 @app.get("/diag/network")
 def diag_network():
@@ -522,23 +503,25 @@ def diag_network():
         hostname = socket.gethostname(); local_ip = socket.gethostbyname(hostname)
         results["hostname"] = hostname; results["local_ip"] = local_ip
     except Exception as e: results["hostname_error"] = str(e)
-    results["xkop_client_active"] = xkop_sock is not None
+    results["xkop_listener_active"] = xkop_listener_sock is not None
     return jsonify(results)
 
 def start_threads():
-    t1=threading.Thread(target=xkop_client_loop, daemon=True); t1.start()
-    log_app("Started XKOP CLIENT mode")
+    t1=threading.Thread(target=xkop_listener, daemon=True); t1.start()
+    log_app("Started XKOP listener")
 
 if __name__=="__main__":
     print("\n"+"="*60)
-    print("XKOP Tool - CLIENT MODE (COMPLETE)")
+    print("XKOP Tool - CLIENT MODE")
     print("="*60)
     with STATE_LOCK: seed_rows_from_config_locked()
-    XKOP_LOCAL_PORT = 8000 + int(CONFIG.get("xkop",1))
-    XKOP_CONTROLLER_ADDR=((CONFIG.get("ip") or "127.0.0.1"), XKOP_LOCAL_PORT)
+    xkop_prt = 8000 + int(CONFIG.get("xkop",1))
+    XKOP_LISTEN_ADDR = ("0.0.0.0", xkop_prt)
+    XKOP_TX_ADDR = ((CONFIG.get("ip") or "127.0.0.1"), xkop_prt)
     start_threads()
     time.sleep(1)
     print(f"\nFlask on http://0.0.0.0:5000")
-    print(f"XKOP CLIENT: Sending to {XKOP_CONTROLLER_ADDR[0]}:{XKOP_CONTROLLER_ADDR[1]}")
+    print(f"XKOP Listening on {XKOP_LISTEN_ADDR[0]}:{XKOP_LISTEN_ADDR[1]}")
+    print(f"XKOP TX to controller {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
     print("="*60+"\n")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
