@@ -444,8 +444,8 @@ input[type="checkbox"]{
           <thead>
             <tr>
               <th style="width:60px">NR</th>
-              <th>Input</th><th>SCN/Func/Idx</th><th>Value</th><th>Action</th>
-              <th>Output</th><th>SCN/Func/Idx</th><th>Value</th><th>Action</th>
+              <th>Input</th><th>SCN/Func/Idx</th><th>Action</th>
+              <th>Output</th><th>SCN/Func/Idx</th><th>Action</th>
             </tr>
           </thead>
           <tbody id="test-rows"></tbody>
@@ -734,64 +734,63 @@ function readSetup(){
 
 /* ---- Test Table ---- */
 function renderTest(){
-  const body=$("#test-rows"); 
+  const body=$("#test-rows");
   body.innerHTML="";
-  
+
   (STATE.rows||[]).forEach((r,ix)=>{
     const tr=document.createElement('tr');
-    
-    const inVal=makeInput((r.in_value??"").toString()); 
-    inVal.style.width="80px";
-    const outVal=makeInput((r.out_value??"").toString()); 
-    outVal.style.width="80px";
-    
-    const btnIn=document.createElement('button'); 
-    btnIn.className="btn success"; 
-    btnIn.textContent="→ XKOP";
+
+    // Toggle button for input (XKOP)
+    const btnIn=document.createElement('button');
+    const currentInVal = r.in_value ?? 0;
+    btnIn.className = currentInVal ? "btn success" : "btn";
+    btnIn.textContent = currentInVal ? "ON (1)" : "OFF (0)";
     btnIn.onclick=async()=>{
       const key=r.nr||r.input||(ix+1).toString();
-      const val=parseInt(inVal.value||"0",10)||0;
+      const val = currentInVal ? 0 : 1; // Toggle: if currently 1, send 0; if currently 0, send 1
       const res=await fetch("/test/input",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        await refreshState(); 
+        await refreshState();
+        renderTest();
         renderLive();
         showNotification('success', `✓ Sent to controller: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test input failed');
       }
     };
-    
-    const btnOut=document.createElement('button'); 
-    btnOut.className="btn success"; 
-    btnOut.textContent="→ SNMP";
+
+    // Toggle button for output (SNMP)
+    const btnOut=document.createElement('button');
+    const currentOutVal = r.out_value ?? 0;
+    btnOut.className = currentOutVal ? "btn success" : "btn";
+    btnOut.textContent = currentOutVal ? "ON (1)" : "OFF (0)";
     btnOut.onclick=async()=>{
       const key=r.nr||r.input||(ix+1).toString();
-      const val=parseInt(outVal.value||"0",10)||0;
+      const val = currentOutVal ? 0 : 1; // Toggle: if currently 1, send 0; if currently 0, send 1
       const res=await fetch("/test/output",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        await refreshState(); 
+        await refreshState();
+        renderTest();
         renderLive();
         showNotification('success', `✓ Published to SNMP: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test output failed');
       }
     };
-    
-    tr.innerHTML=`<td>${r.nr||ix+1}</td><td>${r.input||""}</td><td>${(r.in_scn||"")+' / '+(r.in_func||"-")+' / '+(r.in_idx||"")}</td><td></td><td></td>
-                  <td>${r.output||""}</td><td>${(r.out_scn||"")+' / '+(r.out_func||"-")+' / '+(r.out_idx||"")}</td><td></td><td></td>`;
-    tr.children[3].appendChild(inVal); 
-    tr.children[4].appendChild(btnIn);
-    tr.children[7].appendChild(outVal); 
-    tr.children[8].appendChild(btnOut);
-    
+
+    tr.innerHTML=`<td>${r.nr||ix+1}</td><td>${r.input||""}</td><td>${(r.in_scn||"")+' / '+(r.in_func||"-")+' / '+(r.in_idx||"")}</td><td></td>
+                  <td>${r.output||""}</td><td>${(r.out_scn||"")+' / '+(r.out_func||"-")+' / '+(r.out_idx||"")}</td><td></td>`;
+    tr.children[3].appendChild(btnIn);
+    tr.children[6].appendChild(btnOut);
+
     body.appendChild(tr);
   });
 }
