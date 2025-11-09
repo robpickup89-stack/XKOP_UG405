@@ -862,8 +862,16 @@ def set_test_mode():
     # State is changing - proceed with the change
     TEST_MODE = requested_state
     if TEST_MODE:
+        # Reset all output values to 0 when entering test mode
+        with STATE_LOCK:
+            reset_count = 0
+            for row in STATE["rows"]:
+                if row.get("out_value") is not None:
+                    row["out_value"] = 0
+                    reset_count += 1
+            STATE["last_update"] = time.time()
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
-        log_app(f"✓ Test mode ENABLED. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
+        log_app(f"✓ Test mode ENABLED. Reset {reset_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
         TEST_MODE_EXPIRY=None
         log_app(f"✓ Test mode DISABLED")
