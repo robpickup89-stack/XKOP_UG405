@@ -836,6 +836,10 @@ def get_state():
     if TEST_MODE and TEST_MODE_EXPIRY and datetime.datetime.utcnow()>TEST_MODE_EXPIRY:
         log_app(f"⏰ Test mode AUTO-EXPIRED at {datetime.datetime.utcnow().isoformat()}")
         TEST_MODE=False; TEST_MODE_EXPIRY=None
+        # Log current output values when auto-expiring
+        with STATE_LOCK:
+            output_count = sum(1 for row in STATE["rows"] if row.get("out_value") is not None)
+            log_app(f"  {output_count} output values ready for SNMP publishing")
     with STATE_LOCK:
         return jsonify({"rows":STATE["rows"],"last_update":STATE["last_update"],"test_mode":TEST_MODE,
                         "expires": TEST_MODE_EXPIRY.isoformat() if TEST_MODE_EXPIRY else None})
@@ -879,8 +883,22 @@ def set_test_mode():
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
         log_app(f"✓ Test mode ENABLED. Reset {reset_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
+        # Leaving test mode - log all current output values for verification
         TEST_MODE_EXPIRY=None
-        log_app(f"✓ Test mode DISABLED")
+        with STATE_LOCK:
+            output_summary = []
+            for row in STATE["rows"]:
+                row_nr = row.get("nr", "?")
+                output_name = row.get("output", "")
+                out_value = row.get("out_value")
+                if out_value is not None:
+                    output_summary.append(f"Row {row_nr} ({output_name}): {out_value}")
+
+            log_app(f"✓ Test mode DISABLED. Current output values ready for SNMP publishing:")
+            for summary in output_summary[:10]:  # Log first 10 to avoid spam
+                log_app(f"  {summary}")
+            if len(output_summary) > 10:
+                log_app(f"  ... and {len(output_summary) - 10} more outputs")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
