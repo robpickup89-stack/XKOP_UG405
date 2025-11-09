@@ -1200,6 +1200,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   // Config actions
   $("#btn-save").onclick=()=>saveConfig();
   $("#btn-export").onclick=exportConfig;
+
+  // Auto-save on field changes
+  $("#ip").addEventListener('blur', ()=>saveConfig(true));
+  $("#instation_ip").addEventListener('blur', ()=>saveConfig(true));
+  $("#xkop").addEventListener('change', ()=>saveConfig(true));
+  $("#snmp_port").addEventListener('change', ()=>saveConfig(true));
+
   $("#file-load").addEventListener('change',e=>{
     const f=e.target.files[0];
     if(f){
