@@ -495,8 +495,10 @@ def snmp_get():
                 if idx < 0 or idx > 255:
                     continue
                 bit = max(0, idx - 1)
-                val = r.get("out_value") or 0
-                if val:
+                # Normalize output value to 0 or 1
+                val = r.get("out_value")
+                bit_val = 1 if val else 0
+                if bit_val == 1:
                     mask |= (1 << bit)
             except (ValueError, IndexError, AttributeError):
                 continue
