@@ -276,28 +276,29 @@ def xkop_listener():
                 with STATE_LOCK:
                     rows = STATE["rows"][:]
 
-                for (idx,val) in recs:
-                    for r in rows:
-                        try:
-                            out_idx_raw = r.get("out_idx", "")
-                            if not out_idx_raw:
-                                continue
-                            # Handle comma-separated indices, take first one
-                            out_idx_parts = str(out_idx_raw).split(",")
-                            if not out_idx_parts or not out_idx_parts[0].strip():
-                                continue
-                            ridx = int(out_idx_parts[0].strip())
-                            # Validate index is in valid range (0-255)
-                            if ridx < 0 or ridx > 255:
-                                continue
-                        except (ValueError, IndexError, AttributeError) as e:
-                            log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
-                            continue
+                # Log received records for debugging
+                if recs:
+                    log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
 
-                        if ridx == idx:
+                # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
+                for (idx, val) in recs:
+                    # Convert XKOP index to row number (0→1, 1→2, etc.)
+                    target_row_nr = str(idx + 1)
+
+                    # Find row with this number
+                    matched = False
+                    for r in rows:
+                        row_nr = str(r.get("nr", "")).strip()
+                        if row_nr == target_row_nr:
                             key = r.get("nr") or r.get("output") or ""
-                            update_out_value(key, val)
-                            log_xkop(f"  Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                            if key:
+                                update_out_value(key, val)
+                                log_xkop(f"  Updated output row {row_nr} (XKOP idx={idx}) = {val}")
+                                matched = True
+                            break
+
+                    if not matched:
+                        log_xkop(f"  No row found with nr={target_row_nr} for XKOP idx={idx} (value={val})")
 
         except Exception as e:
             log_xkop(f"ERR {e}")
@@ -362,28 +363,29 @@ def xkop_tcp_listener():
                     with STATE_LOCK:
                         rows = STATE["rows"][:]
 
-                    for (idx, val) in recs:
-                        for r in rows:
-                            try:
-                                out_idx_raw = r.get("out_idx", "")
-                                if not out_idx_raw:
-                                    continue
-                                # Handle comma-separated indices, take first one
-                                out_idx_parts = str(out_idx_raw).split(",")
-                                if not out_idx_parts or not out_idx_parts[0].strip():
-                                    continue
-                                ridx = int(out_idx_parts[0].strip())
-                                # Validate index is in valid range (0-255)
-                                if ridx < 0 or ridx > 255:
-                                    continue
-                            except (ValueError, IndexError, AttributeError) as e:
-                                log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
-                                continue
+                    # Log received records for debugging
+                    if recs:
+                        log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
 
-                            if ridx == idx:
+                    # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
+                    for (idx, val) in recs:
+                        # Convert XKOP index to row number (0→1, 1→2, etc.)
+                        target_row_nr = str(idx + 1)
+
+                        # Find row with this number
+                        matched = False
+                        for r in rows:
+                            row_nr = str(r.get("nr", "")).strip()
+                            if row_nr == target_row_nr:
                                 key = r.get("nr") or r.get("output") or ""
-                                update_out_value(key, val)
-                                log_xkop(f"  TCP Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                                if key:
+                                    update_out_value(key, val)
+                                    log_xkop(f"  TCP Updated output row {row_nr} (XKOP idx={idx}) = {val}")
+                                    matched = True
+                                break
+
+                        if not matched:
+                            log_xkop(f"  TCP No row found with nr={target_row_nr} for XKOP idx={idx} (value={val})")
 
                 except socket.timeout:
                     # Timeout is normal, just continue
@@ -563,6 +565,7 @@ def snmp_set():
 
         for r in rows:
             try:
+                # in_idx is only for SNMP bitmask bit position, NOT for XKOP routing
                 in_idx_raw = r.get("in_idx", "")
                 if not in_idx_raw:
                     continue
@@ -570,23 +573,34 @@ def snmp_set():
                 in_idx_parts = str(in_idx_raw).split(",")
                 if not in_idx_parts or not in_idx_parts[0].strip():
                     continue
-                idx = int(in_idx_parts[0].strip())
+                snmp_idx = int(in_idx_parts[0].strip())
                 # Validate index is in valid range (0-255)
-                if idx < 0 or idx > 255:
-                    log_snmp(f"  Row {r.get('nr','')} has invalid index {idx} (must be 0-255)")
+                if snmp_idx < 0 or snmp_idx > 255:
+                    log_snmp(f"  Row {r.get('nr','')} has invalid in_idx {snmp_idx} (must be 0-255)")
                     continue
 
-                bit = max(0, idx - 1)
+                # Extract bit value from bitmask using SNMP index
+                bit = max(0, snmp_idx - 1)
                 bit_val = 1 if (value & (1 << bit)) else 0
+
+                # XKOP index comes from row number (Nr 1→0, Nr 2→1, etc.)
+                row_nr = r.get("nr", "").strip()
+                if not row_nr:
+                    log_snmp(f"  Row has no nr, skipping")
+                    continue
+                xkop_idx = int(row_nr) - 1
+                if xkop_idx < 0 or xkop_idx > 255:
+                    log_snmp(f"  Row {row_nr} maps to invalid XKOP index {xkop_idx}")
+                    continue
 
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, bit_val)
-                    log_snmp(f"  Row {r.get('nr','')} idx={idx} bit={bit} val={bit_val}")
+                    log_snmp(f"  Row {row_nr} SNMP bit={bit} val={bit_val} → XKOP idx={xkop_idx}")
 
-                xkop_records.append((idx, bit_val))
+                xkop_records.append((xkop_idx, bit_val))
             except (ValueError, IndexError, AttributeError) as e:
-                log_snmp(f"  Error parsing in_idx for row {r.get('nr','')}: {e}")
+                log_snmp(f"  Error processing row {r.get('nr','')}: {e}")
                 continue
 
         if xkop_records and not TEST_MODE:
@@ -602,33 +616,30 @@ def snmp_set():
         if rows:
             r = rows[0]
             try:
-                in_idx_raw = r.get("in_idx", "")
-                if not in_idx_raw:
-                    log_snmp(f"  Row {r.get('nr','')} has no in_idx configured")
-                    return jsonify({"ok": False, "error": "no index configured"})
-                # Handle comma-separated indices, take first one
-                in_idx_parts = str(in_idx_raw).split(",")
-                if not in_idx_parts or not in_idx_parts[0].strip():
-                    log_snmp(f"  Row {r.get('nr','')} has empty in_idx")
-                    return jsonify({"ok": False, "error": "empty index"})
-                idx = int(in_idx_parts[0].strip())
-                # Validate index is in valid range (0-255)
-                if idx < 0 or idx > 255:
-                    log_snmp(f"  Row {r.get('nr','')} has invalid index {idx} (must be 0-255)")
-                    return jsonify({"ok": False, "error": "invalid index range"})
+                # XKOP index comes from row number (Nr 1→0, Nr 2→1, etc.)
+                # in_idx is only for SNMP OID matching, NOT for XKOP routing
+                row_nr = r.get("nr", "").strip()
+                if not row_nr:
+                    log_snmp(f"  Row has no nr configured")
+                    return jsonify({"ok": False, "error": "no row number configured"})
+
+                xkop_idx = int(row_nr) - 1
+                if xkop_idx < 0 or xkop_idx > 255:
+                    log_snmp(f"  Row {row_nr} maps to invalid XKOP index {xkop_idx}")
+                    return jsonify({"ok": False, "error": "invalid row number range"})
 
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, value)
-                    log_snmp(f"  Row {r.get('nr','')} idx={idx} val={value}")
+                    log_snmp(f"  Row {row_nr} val={value} → XKOP idx={xkop_idx}")
 
                 if not TEST_MODE:
-                    pkt = xkop_build_data([(idx, value)])
+                    pkt = xkop_build_data([(xkop_idx, value)])
                     udp_send(pkt, XKOP_TX_ADDR)
                     tcp_send(pkt)
-                    log_xkop(f"TX scalar {func}: idx={idx}, val={value}")
+                    log_xkop(f"TX scalar {func}: XKOP idx={xkop_idx}, val={value}")
             except (ValueError, IndexError, AttributeError) as e:
-                log_snmp(f"  Error parsing in_idx for row {r.get('nr','')}: {e}")
+                log_snmp(f"  Error processing row {r.get('nr','')}: {e}")
                 return jsonify({"ok": False, "error": str(e)})
 
     return jsonify({"ok": True, "oid": oid, "value": value})
@@ -728,22 +739,22 @@ def test_input():
     row=STATE["by_key"].get(key)
     if not row: return jsonify({"ok":False}),404
 
+    # XKOP index comes from row number (Nr 1→0, Nr 2→1, etc.)
+    # in_idx is only for SNMP OID matching, NOT for XKOP routing
     try:
-        in_idx_raw = row.get("in_idx", "0")
-        # Handle comma-separated indices, take first one
-        in_idx_parts = str(in_idx_raw).split(",")
-        if not in_idx_parts or not in_idx_parts[0].strip():
-            idx_byte = 0
+        row_nr = row.get("nr", "").strip()
+        if not row_nr:
+            xkop_idx = 0
         else:
-            idx_byte = int(in_idx_parts[0].strip())
+            xkop_idx = int(row_nr) - 1
             # Validate index is in valid range (0-255)
-            if idx_byte < 0 or idx_byte > 255:
-                idx_byte = 0
+            if xkop_idx < 0 or xkop_idx > 255:
+                xkop_idx = 0
     except (ValueError, IndexError, AttributeError):
-        idx_byte = 0
+        xkop_idx = 0
 
     update_in_value(key,value)
-    pkt=xkop_build_data([(idx_byte,value)])
+    pkt=xkop_build_data([(xkop_idx,value)])
     udp_send(pkt, XKOP_TX_ADDR)
     tcp_send(pkt)  # Also send via TCP when connected
     return jsonify({"ok":True})
