@@ -203,10 +203,18 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         return None
 
     # Check CRC
-    calc = xkop_crc(packet[:15])
-    recv = struct.unpack(">H", packet[15:17])[0]
-    if calc != recv:
-        log_xkop(f"  Parse fail: CRC mismatch calc=0x{calc:04X} recv=0x{recv:04X}")
+    try:
+        calc = xkop_crc(packet[:15])
+        crc_bytes = packet[15:17]
+        if len(crc_bytes) != 2:
+            log_xkop(f"  Parse fail: CRC bytes length {len(crc_bytes)}, expected 2")
+            return None
+        recv = struct.unpack(">H", crc_bytes)[0]
+        if calc != recv:
+            log_xkop(f"  Parse fail: CRC mismatch calc=0x{calc:04X} recv=0x{recv:04X}")
+            return None
+    except (IndexError, struct.error) as e:
+        log_xkop(f"  Parse fail: CRC check error: {e}")
         return None
 
     # Alive messages (type 0x02) have no data records - just return empty list
@@ -223,20 +231,21 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
     recs = []
     try:
         for i in range(0, 12, 3):
-            # Defensive check to ensure we don't exceed bounds
-            if i + 2 >= len(p):
-                log_xkop(f"  Parse fail: index {i+2} exceeds payload length {len(p)}")
+            # Defensive check to ensure we don't exceed bounds for all three accesses
+            if i >= len(p) or i + 1 >= len(p) or i + 2 >= len(p):
+                log_xkop(f"  Parse fail: indices [{i}, {i+1}, {i+2}] exceed payload length {len(p)}")
                 return None
 
-            idx = p[i]
-            val = (p[i+1] << 8) | p[i+2]
-            if idx != 0xFF:
-                recs.append((idx, val))
-    except IndexError as e:
-        log_xkop(f"  Parse fail: IndexError at position {i}: {e}, payload length: {len(p)}")
-        return None
+            try:
+                idx = p[i]
+                val = (p[i+1] << 8) | p[i+2]
+                if idx != 0xFF:
+                    recs.append((idx, val))
+            except IndexError as e:
+                log_xkop(f"  Parse fail: IndexError accessing p[{i}], p[{i+1}], p[{i+2}]: {e}, payload length: {len(p)}")
+                return None
     except Exception as e:
-        log_xkop(f"  Parse fail: unexpected error: {e}")
+        log_xkop(f"  Parse fail: unexpected error in loop: {e}")
         return None
 
     return recs
