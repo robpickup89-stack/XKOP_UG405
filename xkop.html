@@ -1257,9 +1257,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       body:JSON.stringify({enabled:false})
     });
     if(res.ok){
-      // Refresh state from server to get updated output values (all set to 0)
+      // Refresh state from server - outputs will now show live values from controller
       await refreshState(false);
-      showNotification('success', '✓ Test Mode DISABLED - All outputs set to 0');
+      showNotification('success', '✓ Test Mode DISABLED - Showing live values');
     }
   };
   

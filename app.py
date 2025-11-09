@@ -913,16 +913,9 @@ def set_test_mode():
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
         log_app(f"✓ Test mode ENABLED. Set {set_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
-        # Set all output values to 0 when disabling test mode
+        # When disabling test mode, don't modify outputs - let controller send live values
         TEST_MODE_EXPIRY=None
-        with STATE_LOCK:
-            reset_count = 0
-            for row in STATE["rows"]:
-                if row.get("out_value") is not None or row.get("output"):
-                    row["out_value"] = 0
-                    reset_count += 1
-            STATE["last_update"] = time.time()
-            log_app(f"✓ Test mode DISABLED. Reset {reset_count} output values to 0.")
+        log_app(f"✓ Test mode DISABLED. Outputs will show live values from controller.")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
