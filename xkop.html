@@ -754,9 +754,8 @@ function renderTest(){
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        await refreshState();
-        renderTest();
-        renderLive();
+        // Update state and re-render test mode only
+        await refreshState(false);
         showNotification('success', `✓ Sent to controller: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test input failed');
@@ -777,9 +776,8 @@ function renderTest(){
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        await refreshState();
-        renderTest();
-        renderLive();
+        // Update state and re-render test mode only
+        await refreshState(false);
         showNotification('success', `✓ Published to SNMP: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test output failed');
@@ -1088,12 +1086,12 @@ async function refreshConfig(){
   }
 }
 
-async function refreshState(){
+async function refreshState(skipTestRender=false){
   try{
-    const res=await fetch('/state'); 
+    const res=await fetch('/state');
     STATE=await res.json();
-    setTestUi(STATE.test_mode, STATE.expires); 
-    renderTest(); 
+    setTestUi(STATE.test_mode, STATE.expires);
+    if(!skipTestRender) renderTest();
     renderLive();
   }catch(e){
     console.error('Failed to refresh state:', e);
@@ -1141,7 +1139,7 @@ function activate(id){
 function toggleAutoRefresh(){
   const btn=$("#btn-toggle-auto");
   const status=$("#auto-status");
-  
+
   if(AUTO_REFRESH_INTERVAL){
     clearInterval(AUTO_REFRESH_INTERVAL);
     AUTO_REFRESH_INTERVAL=null;
@@ -1149,7 +1147,7 @@ function toggleAutoRefresh(){
     showNotification('info', 'Auto-refresh disabled');
   }else{
     AUTO_REFRESH_INTERVAL=setInterval(async()=>{
-      await refreshState();
+      await refreshState(true); // Skip test render to avoid button flickering
     }, 2000);
     status.textContent="ON";
     showNotification('success', 'Auto-refresh enabled (2s interval)');
@@ -1244,23 +1242,23 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({enabled:true})
-    }); 
-    await refreshState();
+    });
+    await refreshState(false); // Force re-render test mode to show initial state
     showNotification('warning', '⚠️ Test Mode ENABLED');
   };
-  
+
   $("#btn-test-off").onclick=async()=>{
     await fetch('/test/mode',{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({enabled:false})
-    }); 
-    await refreshState();
+    });
+    await refreshState(false); // Force re-render test mode to show reset state
     showNotification('success', '✓ Test Mode DISABLED');
   };
   
   // Live mirror actions
-  $("#btn-refresh-live").onclick=refreshState;
+  $("#btn-refresh-live").onclick=()=>refreshState(true); // Skip test render when manually refreshing live
   $("#btn-toggle-auto").onclick=toggleAutoRefresh;
   
   // Initial load
@@ -1270,7 +1268,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   
   // Auto-refresh logs
   setInterval(refreshLogs,3000);
-  
+
+  // Auto-refresh state (skip test render to avoid button flickering)
+  setInterval(()=>refreshState(true),500);
+
   // Countdown ticker
   setInterval(tickCountdown,1000);
 });
