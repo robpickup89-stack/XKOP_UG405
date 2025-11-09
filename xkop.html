@@ -8,106 +8,284 @@
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --text:#282a32; --muted:#686b87; --action:#404089; --accent:#434ce8;
-  --border:#eff1f6; --bg:#fff; --bg2:#fdfcff; --bg3:#ecf3fe;
-  --success:#27ae60; --warning:#f39c12; --error:#e74c3c;
+  --text:#1a1d2e; --muted:#64748b; --action:#404089; --accent:#5b63f5;
+  --border:#e2e8f0; --bg:#ffffff; --bg2:#f8fafc; --bg3:#eff6ff;
+  --success:#10b981; --warning:#f59e0b; --error:#ef4444;
+  --shadow-sm:0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);
 }
-*{box-sizing:border-box} html,body{height:100%}
-body{margin:0; background:var(--bg2); color:var(--text); font-family:"Be Vietnam Pro",system-ui,Segoe UI,Roboto,Arial,sans-serif}
-.wrapper{max-width:1400px;margin:0 auto;padding:16px}
+
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  background:linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  color:var(--text);
+  font-family:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  line-height:1.6;
+}
+.wrapper{max-width:1440px; margin:0 auto; padding:20px}
 
 /* Header */
 .header{
-  position:sticky; top:8px; z-index:5;
-  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
-  display:flex; align-items:center; gap:14px; justify-content:space-between; flex-wrap:wrap;
+  position:sticky; top:12px; z-index:50;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 20px;
+  display:flex; align-items:center; gap:16px; justify-content:space-between; flex-wrap:wrap;
+  box-shadow:var(--shadow-lg);
+  backdrop-filter:blur(8px);
 }
-.header-left,.header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-.label{font-size:.82rem; color:var(--muted); font-weight:500}
+.header-left,.header-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.label{font-size:.82rem; color:var(--muted); font-weight:600; margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.5px}
 
 /* Inputs */
 .input,.select{
-  height:40px; border:2px solid var(--border); background:var(--bg);
-  padding:0 10px; border-radius:8px; font-size:.95rem; color:#404089; min-width:150px
+  height:42px;
+  border:2px solid var(--border);
+  background:var(--bg);
+  padding:0 12px;
+  border-radius:8px;
+  font-size:.95rem;
+  color:var(--text);
+  min-width:160px;
+  transition:all 0.2s ease;
 }
-.select{padding-right:28px} 
-.input:focus,.select:focus{outline:none;border-color:var(--accent)}
-input[disabled],select[disabled]{background:#f5f6fb;color:#9aa1b5}
-input[type="file"]{padding:8px; cursor:pointer}
+.input:hover,.select:hover{border-color:#cbd5e1}
+.select{padding-right:32px; cursor:pointer}
+.input:focus,.select:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(91,99,245,0.1);
+}
+input[disabled],select[disabled]{background:#f1f5f9; color:#94a3b8; cursor:not-allowed}
+input[type="file"]{padding:10px; cursor:pointer}
 
 /* Buttons */
 .btn{
-  height:40px; padding:0 14px; border-radius:8px; background:var(--bg); border:2px solid var(--border);
-  cursor:pointer; font-weight:600; color:#404089; transition:.15s; font-size:.9rem;
+  height:42px;
+  padding:0 18px;
+  border-radius:8px;
+  background:var(--bg);
+  border:2px solid var(--border);
+  cursor:pointer;
+  font-weight:600;
+  color:var(--action);
+  transition:all 0.2s ease;
+  font-size:.9rem;
+  box-shadow:var(--shadow-sm);
 }
-.btn:hover{border-color:var(--accent); color:var(--accent)}
-.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
-.btn.primary:hover{background:#3a3dd0}
+.btn:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-md);
+}
+.btn:active{transform:translateY(0); box-shadow:var(--shadow-sm)}
+.btn.primary{
+  background:linear-gradient(135deg, var(--accent) 0%, #4850e4 100%);
+  color:#fff;
+  border-color:var(--accent);
+}
+.btn.primary:hover{
+  background:linear-gradient(135deg, #4850e4 0%, #3a3dd0 100%);
+  border-color:#3a3dd0;
+}
 .btn.success{background:var(--success); color:#fff; border-color:var(--success)}
+.btn.success:hover{background:#059669; border-color:#059669}
 .btn.warning{background:var(--warning); color:#fff; border-color:var(--warning)}
+.btn.warning:hover{background:#d97706; border-color:#d97706}
 .btn.danger{background:var(--error); color:#fff; border-color:var(--error)}
-.btn:disabled{opacity:0.5; cursor:not-allowed}
+.btn.danger:hover{background:#dc2626; border-color:#dc2626}
+.btn:disabled{opacity:0.5; cursor:not-allowed; transform:none}
 
 /* Tabs */
-.tabs{display:flex; gap:10px; overflow:auto; margin:14px 0 8px; padding:2px; border-bottom:1px solid var(--border)}
-.tab{padding:10px 12px; border-bottom:3px solid transparent; font-weight:600; color:#404089; cursor:pointer; white-space:nowrap}
-.tab.active{color:var(--accent); border-bottom-color:var(--accent); background:var(--bg); border-radius:8px 8px 0 0}
+.tabs{
+  display:flex;
+  gap:8px;
+  overflow:auto;
+  margin:20px 0 0;
+  padding:6px;
+  background:var(--bg);
+  border-radius:12px 12px 0 0;
+  box-shadow:var(--shadow-sm);
+}
+.tab{
+  padding:12px 18px;
+  border-radius:8px;
+  font-weight:600;
+  color:var(--muted);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:all 0.2s ease;
+  border:2px solid transparent;
+}
+.tab:hover{color:var(--accent); background:var(--bg3)}
+.tab.active{
+  color:var(--accent);
+  background:linear-gradient(135deg, var(--bg3) 0%, #dbeafe 100%);
+  border-color:var(--accent);
+  box-shadow:var(--shadow-sm);
+}
 
 /* Panels */
-.panels{border:1px solid var(--border); background:var(--bg); border-radius:0 10px 10px 10px; max-height:calc(100vh - 170px); overflow:auto}
-.panel{display:none; padding:16px} .panel.active{display:block}
+.panels{
+  border:1px solid var(--border);
+  background:var(--bg);
+  border-radius:0 0 12px 12px;
+  max-height:calc(100vh - 200px);
+  overflow:auto;
+  box-shadow:var(--shadow-md);
+}
+.panel{display:none; padding:20px}
+.panel.active{display:block}
 
 /* Tables */
 .table{width:100%; border-collapse:separate; border-spacing:0; min-width:920px}
-.table th,.table td{padding:10px; border-bottom:1px solid var(--border); font-size:.93rem; text-align:left}
-.table th{color:#686b87; background:#f7f7ff; font-weight:600; position:sticky; top:0; z-index:2}
-.table tr:hover{background:#f9fafb}
-.table input,.table select{height:36px; min-width:100px}
+.table th,.table td{
+  padding:12px;
+  border-bottom:1px solid var(--border);
+  font-size:.93rem;
+  text-align:left;
+}
+.table th{
+  color:var(--muted);
+  background:linear-gradient(180deg, #fafbff 0%, #f1f5f9 100%);
+  font-weight:700;
+  position:sticky;
+  top:0;
+  z-index:2;
+  text-transform:uppercase;
+  font-size:.8rem;
+  letter-spacing:0.5px;
+}
+.table tbody tr{transition:all 0.15s ease}
+.table tbody tr:hover{background:#f8fafc; box-shadow:inset 0 0 0 1px var(--border)}
+.table input,.table select{height:38px; min-width:100px}
 
 /* Badges & Pills */
-.small{font-size:.82rem; color:#686b87}
-.pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-weight:600;font-size:.85rem}
-.pill.ok{background:#eaf8f1; color:#127a4a} 
-.pill.warn{background:#fff7e1; color:#9a6a00}
-.pill.error{background:#ffe5e5; color:#c03; }
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3b43d4;font-size:.78rem}
+.small{font-size:.82rem; color:var(--muted)}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 12px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.82rem;
+  box-shadow:var(--shadow-sm);
+}
+.pill.ok{background:#d1fae5; color:#065f46; border:1px solid #a7f3d0}
+.pill.warn{background:#fef3c7; color:#92400e; border:1px solid #fde68a}
+.pill.error{background:#fee2e2; color:#991b1b; border:1px solid #fecaca}
+.badge{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  background:var(--bg3);
+  color:var(--accent);
+  font-size:.78rem;
+  font-weight:600;
+  border:1px solid #bfdbfe;
+}
 
 /* Alerts */
-.alert{padding:12px; border-radius:8px; margin-bottom:12px; border-left:4px solid}
-.alert.info{background:rgba(52,152,219,0.1); border-color:#3498db; color:#2980b9}
-.alert.success{background:rgba(39,174,96,0.1); border-color:#27ae60; color:#229954}
-.alert.warning{background:rgba(241,196,15,0.1); border-color:#f1c40f; color:#d68910}
-.alert.error{background:rgba(231,76,60,0.1); border-color:#e74c3c; color:#c0392b}
+.alert{
+  padding:14px 16px;
+  border-radius:10px;
+  margin-bottom:14px;
+  border-left:4px solid;
+  box-shadow:var(--shadow-sm);
+  font-weight:500;
+}
+.alert.info{background:#eff6ff; border-color:#3b82f6; color:#1e40af}
+.alert.success{background:#ecfdf5; border-color:#10b981; color:#065f46}
+.alert.warning{background:#fef3c7; border-color:#f59e0b; color:#92400e}
+.alert.error{background:#fee2e2; border-color:#ef4444; color:#991b1b}
 
 /* Code/Log display */
-.code{font-family:ui-monospace,Consolas,Menlo,monospace; background:#0e1116; color:#c9d1d9; border:1px solid #1f2630; border-radius:8px; padding:10px; height:300px; overflow:auto; font-size:.88rem; line-height:1.5}
-.log-entry{margin-bottom:3px; padding:2px}
-.log-entry.error{color:#ff7b72}
-.log-entry.success{color:#7ee787}
-.log-entry.info{color:#79c0ff}
+.code{
+  font-family:"JetBrains Mono",ui-monospace,Consolas,Menlo,monospace;
+  background:#0d1117;
+  color:#e6edf3;
+  border:1px solid #30363d;
+  border-radius:10px;
+  padding:14px;
+  height:320px;
+  overflow:auto;
+  font-size:.88rem;
+  line-height:1.6;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);
+}
+.log-entry{margin-bottom:4px; padding:2px 4px; border-radius:3px}
+.log-entry.error{color:#ff7b72; background:rgba(255,123,114,0.1)}
+.log-entry.success{color:#7ee787; background:rgba(126,231,135,0.1)}
+.log-entry.info{color:#79c0ff; background:rgba(121,192,255,0.1)}
 
 /* Actions */
-.row-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.row-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
 
 /* Grid layouts */
-.grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px}
-.card{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px}
-.card h3{margin:0 0 12px; color:var(--accent); font-size:1.1rem; font-weight:600}
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px}
+.card{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  box-shadow:var(--shadow-sm);
+  transition:all 0.2s ease;
+}
+.card:hover{box-shadow:var(--shadow-md)}
+.card h3{
+  margin:0 0 14px;
+  color:var(--accent);
+  font-size:1.15rem;
+  font-weight:700;
+  border-bottom:2px solid var(--bg3);
+  padding-bottom:8px;
+}
 
 /* Checkbox */
-input[type="checkbox"]{width:18px; height:18px; cursor:pointer}
+input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  accent-color:var(--accent);
+}
 
 /* Notification */
 .notification{
-  position:fixed; top:20px; right:20px; z-index:9999; max-width:400px;
-  padding:12px 16px; border-radius:8px; font-weight:500;
-  box-shadow:0 4px 12px rgba(0,0,0,0.15); animation:slideIn 0.3s;
+  position:fixed;
+  top:24px;
+  right:24px;
+  z-index:9999;
+  max-width:420px;
+  padding:14px 18px;
+  border-radius:10px;
+  font-weight:600;
+  box-shadow:var(--shadow-lg);
+  animation:slideIn 0.3s ease-out;
+  border:1px solid rgba(0,0,0,0.1);
 }
-@keyframes slideIn{from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1}}
+@keyframes slideIn{
+  from{transform:translateX(calc(100% + 24px)); opacity:0}
+  to{transform:translateX(0); opacity:1}
+}
+
+/* Scrollbar styling */
+.panels::-webkit-scrollbar,.code::-webkit-scrollbar{width:8px; height:8px}
+.panels::-webkit-scrollbar-track,.code::-webkit-scrollbar-track{background:var(--bg2); border-radius:4px}
+.panels::-webkit-scrollbar-thumb,.code::-webkit-scrollbar-thumb{
+  background:#cbd5e1;
+  border-radius:4px;
+  transition:background 0.2s;
+}
+.panels::-webkit-scrollbar-thumb:hover,.code::-webkit-scrollbar-thumb:hover{background:#94a3b8}
 
 @media (max-width: 768px) {
   .grid{grid-template-columns:1fr}
   .header{flex-direction:column; align-items:stretch}
+  .wrapper{padding:12px}
 }
 </style>
 </head>
@@ -1034,344 +1212,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   
   // Countdown ticker
   setInterval(tickCountdown,1000);
-});
-</script>
-</body>
-</html><!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>UG405 – XKOP Tool</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --text:#282a32; --muted:#686b87; --action:#404089; --accent:#434ce8;
-  --border:#eff1f6; --bg:#fff; --bg2:#fdfcff; --bg3:#ecf3fe;
-}
-*{box-sizing:border-box} html,body{height:100%}
-body{margin:0; background:var(--bg2); color:var(--text); font-family:"Be Vietnam Pro",system-ui,Segoe UI,Roboto,Arial,sans-serif}
-.wrapper{max-width:1280px;margin:0 auto;padding:16px}
-.header{
-  position:sticky; top:8px; z-index:5;
-  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
-  display:flex; align-items:center; gap:14px; justify-content:space-between;
-}
-.header-left,.header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-.label{font-size:.82rem; color:var(--muted)}
-.input,.select{
-  height:40px; border:2px solid var(--border); background:var(--bg);
-  padding:0 10px; border-radius:8px; font-size:.95rem; color:#404089; min-width:150px
-}
-.select{padding-right:28px} .input:focus,.select:focus{outline:none;border-color:var(--accent)}
-.btn{
-  height:40px; padding:0 14px; border-radius:8px; background:var(--bg); border:2px solid var(--border);
-  cursor:pointer; font-weight:600; color:#404089; transition:.15s
-}
-.btn:hover{border-color:var(--accent); color:var(--accent)}
-.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
-.tabs{display:flex; gap:10px; overflow:auto; margin:14px 0 8px; padding:2px; border-bottom:1px solid var(--border)}
-.tab{padding:10px 12px; border-bottom:3px solid transparent; font-weight:600; color:#404089; cursor:pointer}
-.tab.active{color:var(--accent); border-bottom-color:var(--accent); background:var(--bg); border-radius:8px 8px 0 0}
-.panels{border:1px solid var(--border); background:var(--bg); border-radius:0 10px 10px 10px; max-height:calc(100vh - 170px); overflow:auto}
-.panel{display:none; padding:12px} .panel.active{display:block}
-.table{width:100%; border-collapse:separate; border-spacing:0; min-width:920px}
-.table th,.table td{padding:10px; border-bottom:1px solid var(--border); font-size:.93rem}
-.table th{color:#686b87; background:#f7f7ff; font-weight:600}
-.small{font-size:.82rem; color:#686b87}
-.code{font-family:ui-monospace,Consolas,Menlo,monospace; background:#0e1116; color:#c9d1d9; border:1px solid #1f2630; border-radius:8px; padding:10px; height:260px; overflow:auto}
-.pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-weight:600;font-size:.85rem}
-.pill.ok{background:#eaf8f1; color:#127a4a} .pill.warn{background:#fff7e1; color:#9a6a00}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3b43d4;font-size:.78rem}
-input[disabled],select[disabled]{background:#f5f6fb;color:#9aa1b5}
-.row-actions{display:flex; gap:6px; flex-wrap:wrap}
-</style>
-</head>
-<body>
-<div class="wrapper">
-
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-left">
-      <div>
-        <div class="label">Controller IP</div>
-        <input id="ip" class="input" placeholder="e.g. 172.18.1.107">
-      </div>
-      <div>
-        <div class="label">Instation</div>
-        <input id="instation_ip" class="input" placeholder="e.g. 127.0.0.1">
-      </div>
-      <div>
-        <div class="label">XKOP</div>
-        <select id="xkop" class="select">
-          <option value="1">XKOP1 (8001)</option>
-          <option value="2">XKOP2 (8002)</option>
-          <option value="3">XKOP3 (8003)</option>
-          <option value="4">XKOP4 (8004)</option>
-        </select>
-      </div>
-      <div>
-        <div class="label">SNMP Port</div>
-        <input id="snmp_port" type="number" class="input" value="161" min="1" max="65535">
-      </div>
-    </div>
-    <div class="header-right">
-      <button class="btn" id="btn-import-hvi">Import (HVI)</button>
-      <button class="btn primary" id="btn-save">Save Config</button>
-      <label class="btn" for="file-load">Load Config</label>
-      <input id="file-load" type="file" accept="application/json" style="display:none">
-      <button class="btn" id="btn-export">Export Config</button>
-    </div>
-  </div>
-
-  <!-- TABS -->
-  <div class="tabs" id="tabs">
-    <div class="tab active" data-panel="setup">Setup</div>
-    <div class="tab" data-panel="test">Test Mode</div>
-    <div class="tab" data-panel="live">Live Mirror</div>
-    <div class="tab" data-panel="log-snmp">SNMP Log</div>
-    <div class="tab" data-panel="log-xkop">XKOP Log</div>
-    <div class="tab" data-panel="log-app">App Log</div>
-    <div class="tab" data-panel="hvi">HVI Viewer</div>
-  </div>
-
-  <div class="panels">
-    <!-- SETUP -->
-    <div class="panel active" id="panel-setup">
-      <div class="small">Inputs go to controller (XKOP). Outputs come from controller (XKOP) and are sent to instation (SNMP).</div>
-      <table class="table" id="setup-table">
-        <thead>
-          <tr>
-            <th style="width:60px">NR</th>
-            <th>Input</th><th>SCN (in)</th><th>Func (in)</th><th>Idx (in)</th>
-            <th>Output</th><th>SCN (out)</th><th>Func (out)</th><th>Idx (out)</th>
-          </tr>
-        </thead>
-        <tbody id="setup-rows"></tbody>
-      </table>
-      <div class="row-actions" style="margin-top:10px">
-        <button class="btn" id="btn-add-row">Add Row</button>
-        <button class="btn" id="btn-clear-rows">Clear All</button>
-        <span class="small">Idx is enabled only if function ends with “n”. Default func is “-”.</span>
-      </div>
-    </div>
-
-    <!-- TEST MODE -->
-    <div class="panel" id="panel-test">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div>
-          <div style="font-weight:600">Test Mode</div>
-          <div class="small">When ON, auto routing pauses. Use per-row buttons: Input→XKOP, Output→SNMP. Auto-off after 1 hour.</div>
-        </div>
-        <div class="row-actions">
-          <span id="test-status" class="pill warn">OFF</span>
-          <span id="test-eta" class="badge" style="display:none">00:00:00</span>
-          <button class="btn" id="btn-test-on">Enable</button>
-          <button class="btn" id="btn-test-off">Disable</button>
-        </div>
-      </div>
-      <table class="table" style="margin-top:10px">
-        <thead>
-          <tr>
-            <th style="width:56px">NR</th>
-            <th>Input</th><th>SCN/Func/Idx (in)</th><th>Value</th><th>Action</th>
-            <th>Output</th><th>SCN/Func/Idx (out)</th><th>Value</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="test-rows"></tbody>
-      </table>
-    </div>
-
-    <!-- LIVE -->
-    <div class="panel" id="panel-live">
-      <div class="small">Read-only snapshot.</div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="width:60px">NR</th>
-            <th>Input</th><th>SCN</th><th>Func</th><th>Idx</th><th>In Val</th>
-            <th>Output</th><th>SCN</th><th>Func</th><th>Idx</th><th>Out Val</th>
-          </tr>
-        </thead>
-        <tbody id="live-rows"></tbody>
-      </table>
-    </div>
-
-    <!-- LOGS -->
-    <div class="panel" id="panel-log-snmp"><div class="small">SNMP activity</div><pre class="code" id="snmp-log"></pre></div>
-    <div class="panel" id="panel-log-xkop"><div class="small">XKOP activity</div><pre class="code" id="xkop-log"></pre></div>
-    <div class="panel" id="panel-log-app"><div class="small">App status</div><pre class="code" id="app-log"></pre></div>
-
-    <!-- HVI -->
-    <div class="panel" id="panel-hvi">
-      <div class="row-actions" style="margin-bottom:8px">
-        <button class="btn" id="btn-apply-hvi">Apply names from HVI</button>
-        <span class="small">Seeds Input/Output names from maintenance table.</span>
-      </div>
-      <pre class="code" id="hvi-raw"></pre>
-    </div>
-  </div>
-</div>
-
-<script>
-/* ---- Func lists ---- */
-const CONTROL_FUNCS=["-","DX","Dn","Fn","SFn","PV","PX","SO","SG","LO","LL","TS","FM","TO","HI","CP","EP","GO","FF","MO"];
-const REPLY_FUNCS=["-","Gn","GX","DF","FC","SCn","HC","WI","PC","PR","CG","GR1","SDn","MC","CF","LE","RR","LFn","RF1","RF2","EV","VC","VO","GPn","VQ","CA","CR","CL","CSn","TF","VSn","CO","EC","CS","FR","BDn","TPn","SB","LC","MR","MF","ML"];
-const $=s=>document.querySelector(s); const $$=s=>Array.from(document.querySelectorAll(s));
-
-let CONFIG={ip:"",instation_ip:"127.0.0.1",xkop:1,snmp_port:161,rows:[]};
-let STATE={rows:[],test_mode:false,expires:null,last_update:0};
-let HVI_TEXT="";
-
-/* ---- helpers ---- */
-function funcHasIdx(f){ return (f||"").endsWith("n"); }
-function makeInput(v,p=""){const i=document.createElement('input');i.className="input";i.value=v||"";i.placeholder=p;return i;}
-function makeSelect(list,val,cls){const s=document.createElement('select');s.className='select '+(cls||'');list.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;s.appendChild(o)});s.value=(val&&list.includes(val))?val:"-";return s;}
-function syncIdx(tr){const iF=tr.querySelector('.in-func').value,oF=tr.querySelector('.out-func').value;const ii=tr.querySelector('.in-idx'),oi=tr.querySelector('.out-idx');ii.disabled=!funcHasIdx(iF);oi.disabled=!funcHasIdx(oF);if(ii.disabled)ii.value="";if(oi.disabled)oi.value="";}
-
-/* ---- Setup table ---- */
-function renderSetup(){
-  const body=$("#setup-rows"); body.innerHTML="";
-  CONFIG.rows.forEach((r,ix)=>{
-    const tr=document.createElement('tr');
-    const nr=makeInput(r.nr||(ix+1)); nr.style.minWidth="60px";
-    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;
-    tr.children[0].appendChild(nr);
-    tr.children[1].appendChild(makeInput(r.input||"","Input name"));
-    tr.children[2].appendChild(makeInput(r.in_scn||""));
-    const sIn=makeSelect(CONTROL_FUNCS,r.in_func||"-","in-func"); tr.children[3].appendChild(sIn);
-    const iIn=makeInput(r.in_idx||""); iIn.classList.add("in-idx"); tr.children[4].appendChild(iIn);
-    tr.children[5].appendChild(makeInput(r.output||"","Output name"));
-    tr.children[6].appendChild(makeInput(r.out_scn||""));
-    const sOut=makeSelect(REPLY_FUNCS,r.out_func||"-","out-func"); tr.children[7].appendChild(sOut);
-    const iOut=makeInput(r.out_idx||""); iOut.classList.add("out-idx"); tr.children[8].appendChild(iOut);
-    sIn.onchange=()=>syncIdx(tr); sOut.onchange=()=>syncIdx(tr); syncIdx(tr);
-    body.appendChild(tr);
-  });
-}
-function readSetup(){
-  const out=[]; $$("#setup-rows tr").forEach((tr,ix)=>{
-    const [nr,inp,inScn,inFunc,inIdx,outp,outScn,outFunc,outIdx] =
-      Array.from(tr.querySelectorAll('input,select')).map(e=>e.value.trim());
-    out.push({nr,input:inp,in_scn:inScn,in_func:inFunc,in_idx:inIdx,output:outp,out_scn:outScn,out_func:outFunc,out_idx:outIdx});
-  }); return out;
-}
-
-/* ---- Test table ---- */
-function renderTest(){
-  const body=$("#test-rows"); body.innerHTML="";
-  (STATE.rows||[]).forEach((r,ix)=>{
-    const tr=document.createElement('tr');
-    const inVal=makeInput((r.in_value??"").toString()); inVal.style.width="80px";
-    const outVal=makeInput((r.out_value??"").toString()); outVal.style.width="80px";
-    const btnIn=document.createElement('button'); btnIn.className="btn"; btnIn.textContent="Send to Controller (XKOP)";
-    btnIn.onclick=async()=>{const key=r.nr||r.input||(ix+1).toString();const val=parseInt(inVal.value||"0",10)||0;
-      const res=await fetch("/test/input",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value:val})});
-      if(res.ok){await refreshState(); renderLive();} else alert("Test input failed");};
-    const btnOut=document.createElement('button'); btnOut.className="btn"; btnOut.textContent="Send to Instation (SNMP)";
-    btnOut.onclick=async()=>{const key=r.nr||r.input||(ix+1).toString();const val=parseInt(outVal.value||"0",10)||0;
-      const res=await fetch("/test/output",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value:val})});
-      if(res.ok){await refreshState(); renderLive();} else alert("Test output failed");};
-    tr.innerHTML=`<td>${r.nr||ix+1}</td><td>${r.input||""}</td><td>${(r.in_scn||"")+' / '+(r.in_func||"-")+' / '+(r.in_idx||"")}</td><td></td><td></td>
-                  <td>${r.output||""}</td><td>${(r.out_scn||"")+' / '+(r.out_func||"-")+' / '+(r.out_idx||"")}</td><td></td><td></td>`;
-    tr.children[3].appendChild(inVal); tr.children[4].appendChild(btnIn);
-    tr.children[7].appendChild(outVal); tr.children[8].appendChild(btnOut);
-    body.appendChild(tr);
-  });
-}
-function setTestUi(enabled,expires){
-  const pill=$("#test-status"), eta=$("#test-eta");
-  if(enabled){ pill.textContent="ON"; pill.className="pill ok"; if(expires){eta.style.display="inline-block"; eta.dataset.until=expires;}}
-  else{ pill.textContent="OFF"; pill.className="pill warn"; eta.style.display="none"; delete eta.dataset.until; }
-}
-function tickCountdown(){
-  const eta=$("#test-eta"); const u=eta.dataset.until; if(!u) return;
-  const end=new Date(u).getTime(), now=Date.now(); let s=Math.max(0,Math.floor((end-now)/1000));
-  const hh=String(Math.floor(s/3600)).padStart(2,'0'); s%=3600; const mm=String(Math.floor(s/60)).padStart(2,'0'); s%=60;
-  eta.textContent=`${hh}:${mm}:${String(s).padStart(2,'0')}`;
-}
-
-/* ---- Live mirror ---- */
-function renderLive(){
-  const body=$("#live-rows"); body.innerHTML="";
-  (STATE.rows||[]).forEach((r,ix)=>{
-    const tr=document.createElement('tr');
-    function td(t){const d=document.createElement('td'); d.textContent=t??""; return d;}
-    tr.append(td(r.nr||ix+1),td(r.input),td(r.in_scn),td(r.in_func),td(r.in_idx),td(r.in_value),
-              td(r.output),td(r.out_scn),td(r.out_func),td(r.out_idx),td(r.out_value));
-    body.appendChild(tr);
-  });
-}
-
-/* ---- Logs ---- */
-async function refreshLogs(){
-  const [a,b,c]=await Promise.all([fetch('/log/snmp'),fetch('/log/xkop'),fetch('/log/app')]);
-  $("#snmp-log").textContent=(await a.json()).join("\n");
-  $("#xkop-log").textContent=(await b.json()).join("\n");
-  $("#app-log").textContent =(await c.json()).join("\n");
-}
-
-/* ---- HVI ---- */
-async function importHvi(){
-  const ip=$("#ip").value.trim(); const n=parseInt($("#xkop").value,10)||1;
-  if(!ip){alert("Enter controller IP first"); return;}
-  const res=await fetch(`/hvi?ip=${encodeURIComponent(ip)}&n=${n}`);
-  const txt=await res.text(); HVI_TEXT=txt; $("#hvi-raw").textContent=txt; activate('hvi');
-}
-function applyHviNames(){
-  // Basic :BEGINMAINTABLE parse to seed names
-  const m=/:BEGINMAINTABLE([\s\S]*?):ENDMAINTABLE/mi.exec(HVI_TEXT||""); if(!m){alert("No maintenance table found"); return;}
-  const rows=(m[1]||"").split(/\r?\n/).map(s=>s.trim()).filter(s=>s.startsWith(":D;;"));
-  const map={}; rows.forEach(line=>{const p=line.split(";"); if(p.length>=7) map[p[2]]={input:p[3],output:p[5]};});
-  CONFIG.rows.forEach(r=>{const t=map[r.nr]; if(t){if(t.input) r.input=t.input; if(t.output) r.output=t.output;}});
-  renderSetup(); alert("Applied names from HVI. Save to persist.");
-}
-
-/* ---- Backend I/O ---- */
-async function refreshConfig(){
-  const res=await fetch('/config'); CONFIG=await res.json();
-  $("#ip").value=CONFIG.ip||""; $("#instation_ip").value=CONFIG.instation_ip||"127.0.0.1";
-  $("#xkop").value=String(CONFIG.xkop||1); $("#snmp_port").value=String(CONFIG.snmp_port||161);
-  (CONFIG.rows||[]).forEach(r=>{ if(!CONTROL_FUNCS.includes(r.in_func)) r.in_func="-"; if(!REPLY_FUNCS.includes(r.out_func)) r.out_func="-"; });
-  renderSetup();
-}
-async function refreshState(){
-  const res=await fetch('/state'); STATE=await res.json();
-  setTestUi(STATE.test_mode, STATE.expires); renderTest(); renderLive();
-}
-async function saveConfig(){
-  CONFIG.ip=$("#ip").value.trim(); CONFIG.instation_ip=$("#instation_ip").value.trim()||"127.0.0.1";
-  CONFIG.xkop=parseInt($("#xkop").value,10)||1; CONFIG.snmp_port=parseInt($("#snmp_port").value,10)||161;
-  CONFIG.rows=readSetup();
-  const r=await fetch('/config',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(CONFIG)});
-  if(!r.ok){alert("Save failed: "+await r.text()); return;}
-  await refreshConfig(); await refreshState(); alert("Saved.");
-}
-function exportConfig(){
-  const blob=new Blob([JSON.stringify(CONFIG,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download="ug405-config.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
-}
-function loadConfigFile(f){
-  const rd=new FileReader(); rd.onload=async()=>{try{CONFIG=JSON.parse(rd.result); await saveConfig();}catch{alert("Invalid config");}}; rd.readAsText(f);
-}
-
-/* ---- Tabs ---- */
-function activate(id){ $$(".tab").forEach(t=>t.classList.toggle('active', t.dataset.panel===id)); $$(".panel").forEach(p=>p.classList.toggle('active', p.id===`panel-${id}`)); }
-
-/* ---- Events ---- */
-document.addEventListener('DOMContentLoaded', async ()=>{
-  $$("#tabs .tab").forEach(t=> t.addEventListener('click', ()=> activate(t.dataset.panel)));
-  $("#btn-add-row").onclick=()=>{CONFIG.rows.push({nr:String(CONFIG.rows.length+1),input:"",in_scn:"",in_func:"-",in_idx:"",output:"",out_scn:"",out_func:"-",out_idx:""}); renderSetup();};
-  $("#btn-clear-rows").onclick=()=>{ if(confirm("Clear all rows?")){ CONFIG.rows=[]; renderSetup(); } };
-  $("#btn-save").onclick=saveConfig; $("#btn-export").onclick=exportConfig;
-  $("#file-load").addEventListener('change',e=>{const f=e.target.files[0]; if(f) loadConfigFile(f); e.target.value="";});
-  $("#btn-import-hvi").onclick=importHvi; $("#btn-apply-hvi").onclick=applyHviNames;
-  $("#btn-test-on").onclick=async()=>{await fetch('/test/mode',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:true})}); await refreshState();}
-  $("#btn-test-off").onclick=async()=>{await fetch('/test/mode',{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:false})}); await refreshState();}
-
-  await refreshConfig(); await refreshState(); await refreshLogs();
-  setInterval(refreshLogs,1500); setInterval(async()=>{await refreshState();},1500); setInterval(tickCountdown,1000);
 });
 </script>
 </body>
