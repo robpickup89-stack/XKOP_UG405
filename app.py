@@ -616,22 +616,39 @@ def rows_matching(direction: str, func: str, scn: str) -> List[Row]:
 @app.get("/snmp/get")
 def snmp_get():
     oid = request.args.get("oid", "")
+    log_snmp(f"GET request for OID: {oid}")
+
     parsed = parse_utmc_oid(oid)
     if not parsed:
+        log_snmp(f"  ✗ Invalid OID (not UTMC format): {oid}")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
+
     direction, func, preIndex, scn = parsed
+    log_snmp(f"  Parsed: direction={direction}, func={func}, preIndex={preIndex}, scn={scn}")
+
     if direction != 'out':
+        log_snmp(f"  ✗ Wrong direction (expected 'out', got '{direction}')")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
+
     # ✅ Outputs accept both preIndex 0 and 1
     if preIndex not in (0, 1):
+        log_snmp(f"  ✗ Invalid preIndex (expected 0 or 1, got {preIndex})")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
+
     func_info = REPLY_FUNCS.get(func)
     if not func_info:
+        log_snmp(f"  ✗ Unknown function: {func}")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
+
     _, kind = func_info
     rows = rows_matching('out', func, scn)
+
     if not rows:
+        log_snmp(f"  ✗ No rows configured for func={func}, scn={scn}")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
+
+    log_snmp(f"  Found {len(rows)} matching rows, type={kind}")
+
     if kind == "bitmask":
         mask = 0
         for r in rows:
@@ -653,13 +670,14 @@ def snmp_get():
                     mask |= (1 << bit)
             except (ValueError, IndexError, AttributeError):
                 continue
-        log_snmp(f"GET {oid} = {mask}")
+        log_snmp(f"  ✓ GET {oid} = {mask} (bitmask)")
         return jsonify({"oid": oid, "value": str(mask), "type": "string"})
     else:
         if rows:
             val = rows[0].get("out_value") or 0
-            log_snmp(f"GET {oid} = {val}")
+            log_snmp(f"  ✓ GET {oid} = {val} (scalar)")
             return jsonify({"oid": oid, "value": val, "type": "integer"})
+        log_snmp(f"  ✗ No value available for {oid}")
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
 
 @app.post("/snmp/set")
