@@ -93,14 +93,46 @@ fi
 echo "🔍 Checking for processes using ports 5000 and 8001-8020..."
 echo ""
 
-# Function to kill process on a specific port
+# Function to kill process on a specific port (with multiple methods)
 kill_port() {
     local port=$1
-    local pid=$(lsof -ti:$port 2>/dev/null)
-    if [ ! -z "$pid" ]; then
-        echo "  Killing process $pid on port $port"
-        kill -9 $pid 2>/dev/null
-        sleep 0.1
+    local killed=0
+
+    # Method 1: Try lsof first
+    if command -v lsof >/dev/null 2>&1; then
+        local pid=$(lsof -ti:$port 2>/dev/null)
+        if [ ! -z "$pid" ]; then
+            echo "  [lsof] Killing process $pid on port $port"
+            kill -9 $pid 2>/dev/null && killed=1
+            sleep 0.2
+        fi
+    fi
+
+    # Method 2: Try fuser if lsof didn't work
+    if [ $killed -eq 0 ] && command -v fuser >/dev/null 2>&1; then
+        local result=$(fuser $port/tcp 2>/dev/null)
+        if [ ! -z "$result" ]; then
+            echo "  [fuser] Killing process on port $port"
+            fuser -k $port/tcp 2>/dev/null && killed=1
+            sleep 0.2
+        fi
+        # Also try UDP
+        result=$(fuser $port/udp 2>/dev/null)
+        if [ ! -z "$result" ]; then
+            echo "  [fuser] Killing UDP process on port $port"
+            fuser -k $port/udp 2>/dev/null
+            sleep 0.2
+        fi
+    fi
+
+    # Method 3: Try netstat + kill
+    if [ $killed -eq 0 ] && command -v netstat >/dev/null 2>&1; then
+        local pid=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1)
+        if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+            echo "  [netstat] Killing process $pid on port $port"
+            kill -9 $pid 2>/dev/null && killed=1
+            sleep 0.2
+        fi
     fi
 }
 
@@ -112,8 +144,13 @@ for port in {8001..8020}; do
     kill_port $port
 done
 
+# Python fallback - always run to catch anything missed
+if [ -f "kill_ports.py" ]; then
+    python3 kill_ports.py 2>/dev/null
+fi
+
 echo ""
-echo "✅ Ports cleared"
+echo "✅ Port cleanup completed"
 echo ""
 
 # Display startup information
