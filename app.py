@@ -198,10 +198,17 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         return None
 
     # Extract records
-    p = packet[3:15]; recs=[]
-    for i in range(0,12,3):
-        idx=p[i]; val=(p[i+1]<<8) | p[i+2]
-        if idx!=0xFF: recs.append((idx,val))
+    p = packet[3:15]
+    if len(p) != 12:
+        log_xkop(f"  Parse fail: payload length {len(p)}, expected 12")
+        return None
+
+    recs = []
+    for i in range(0, 12, 3):
+        idx = p[i]
+        val = (p[i+1] << 8) | p[i+2]
+        if idx != 0xFF:
+            recs.append((idx, val))
     return recs
 
 def udp_send(data: bytes, target: Tuple[str,int]):
