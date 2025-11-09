@@ -718,13 +718,16 @@ def snmp_set():
                 log_snmp(f"  Error processing row {r.get('nr','')}: {e}")
                 continue
 
-        if xkop_records and not TEST_MODE:
-            for i in range(0, len(xkop_records), 4):
-                batch = xkop_records[i:i+4]
-                pkt = xkop_build_data(batch)
-                udp_send(pkt, XKOP_TX_ADDR)
-                tcp_send(pkt)
-                log_xkop(f"TX bitmask {func}: {batch}")
+        if xkop_records:
+            if not TEST_MODE:
+                for i in range(0, len(xkop_records), 4):
+                    batch = xkop_records[i:i+4]
+                    pkt = xkop_build_data(batch)
+                    udp_send(pkt, XKOP_TX_ADDR)
+                    tcp_send(pkt)
+                    log_xkop(f"TX bitmask {func}: {batch}")
+            else:
+                log_snmp(f"  Test mode: BLOCKED sending {len(xkop_records)} bitmask records to controller")
 
     else:
         # Scalar - just use first matching row
@@ -746,7 +749,10 @@ def snmp_set():
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, value)
-                    log_snmp(f"  Row {row_nr} val={value} → XKOP idx={xkop_idx}")
+                    if not TEST_MODE:
+                        log_snmp(f"  Row {row_nr} val={value} → XKOP idx={xkop_idx}")
+                    else:
+                        log_snmp(f"  Row {row_nr} val={value} → Test mode: BLOCKED sending to controller")
 
                 if not TEST_MODE:
                     pkt = xkop_build_data([(xkop_idx, value)])
@@ -910,7 +916,25 @@ def test_output():
     key=str(data.get("key","")).strip(); value=int(data.get("value",1))
     row=STATE["by_key"].get(key)
     if not row: return jsonify({"ok":False}),404
+
+    # XKOP index comes from row number (Nr 1→0, Nr 2→1, etc.)
+    try:
+        row_nr = row.get("nr", "").strip()
+        if not row_nr:
+            xkop_idx = 0
+        else:
+            xkop_idx = int(row_nr) - 1
+            # Validate index is in valid range (0-255)
+            if xkop_idx < 0 or xkop_idx > 255:
+                xkop_idx = 0
+    except (ValueError, IndexError, AttributeError):
+        xkop_idx = 0
+
     update_out_value(key, value)
+    # Send manual output changes to controller via XKOP
+    pkt=xkop_build_data([(xkop_idx,value)])
+    udp_send(pkt, XKOP_TX_ADDR)
+    tcp_send(pkt)
     return jsonify({"ok":True})
 
 @app.get("/log/snmp")
