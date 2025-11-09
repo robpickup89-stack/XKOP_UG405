@@ -255,11 +255,19 @@ def xkop_listener():
                 for (idx,val) in recs:
                     for r in rows:
                         try:
-                            out_idx_str = str(r.get("out_idx","")).split(",")[0]
-                            if not out_idx_str:
+                            out_idx_raw = r.get("out_idx", "")
+                            if not out_idx_raw:
                                 continue
-                            ridx = int(out_idx_str)
-                        except:
+                            # Handle comma-separated indices, take first one
+                            out_idx_parts = str(out_idx_raw).split(",")
+                            if not out_idx_parts or not out_idx_parts[0].strip():
+                                continue
+                            ridx = int(out_idx_parts[0].strip())
+                            # Validate index is in valid range (0-255)
+                            if ridx < 0 or ridx > 255:
+                                continue
+                        except (ValueError, IndexError, AttributeError) as e:
+                            log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
                             continue
 
                         if ridx == idx:
@@ -333,11 +341,19 @@ def xkop_tcp_listener():
                     for (idx, val) in recs:
                         for r in rows:
                             try:
-                                out_idx_str = str(r.get("out_idx", "")).split(",")[0]
-                                if not out_idx_str:
+                                out_idx_raw = r.get("out_idx", "")
+                                if not out_idx_raw:
                                     continue
-                                ridx = int(out_idx_str)
-                            except:
+                                # Handle comma-separated indices, take first one
+                                out_idx_parts = str(out_idx_raw).split(",")
+                                if not out_idx_parts or not out_idx_parts[0].strip():
+                                    continue
+                                ridx = int(out_idx_parts[0].strip())
+                                # Validate index is in valid range (0-255)
+                                if ridx < 0 or ridx > 255:
+                                    continue
+                            except (ValueError, IndexError, AttributeError) as e:
+                                log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
                                 continue
 
                             if ridx == idx:
@@ -453,8 +469,8 @@ def snmp_get():
     direction, func, preIndex, scn = parsed
     if direction != 'out':
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
-    # ✅ ALL outputs must have preIndex = 0
-    if preIndex != 0:
+    # ✅ Outputs accept both preIndex 0 and 1
+    if preIndex not in (0, 1):
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
     func_info = REPLY_FUNCS.get(func)
     if not func_info:
@@ -467,12 +483,22 @@ def snmp_get():
         mask = 0
         for r in rows:
             try:
-                idx = int(str(r.get("out_idx", "")).split(",")[0])
+                out_idx_raw = r.get("out_idx", "")
+                if not out_idx_raw:
+                    continue
+                # Handle comma-separated indices, take first one
+                out_idx_parts = str(out_idx_raw).split(",")
+                if not out_idx_parts or not out_idx_parts[0].strip():
+                    continue
+                idx = int(out_idx_parts[0].strip())
+                # Validate index is in valid range (0-255)
+                if idx < 0 or idx > 255:
+                    continue
                 bit = max(0, idx - 1)
                 val = r.get("out_value") or 0
                 if val:
                     mask |= (1 << bit)
-            except:
+            except (ValueError, IndexError, AttributeError):
                 continue
         log_snmp(f"GET {oid} = {mask}")
         return jsonify({"oid": oid, "value": str(mask), "type": "string"})
@@ -513,7 +539,19 @@ def snmp_set():
 
         for r in rows:
             try:
-                idx = int(str(r.get("in_idx", "")).split(",")[0])
+                in_idx_raw = r.get("in_idx", "")
+                if not in_idx_raw:
+                    continue
+                # Handle comma-separated indices, take first one
+                in_idx_parts = str(in_idx_raw).split(",")
+                if not in_idx_parts or not in_idx_parts[0].strip():
+                    continue
+                idx = int(in_idx_parts[0].strip())
+                # Validate index is in valid range (0-255)
+                if idx < 0 or idx > 255:
+                    log_snmp(f"  Row {r.get('nr','')} has invalid index {idx} (must be 0-255)")
+                    continue
+
                 bit = max(0, idx - 1)
                 bit_val = 1 if (value & (1 << bit)) else 0
 
@@ -523,8 +561,8 @@ def snmp_set():
                     log_snmp(f"  Row {r.get('nr','')} idx={idx} bit={bit} val={bit_val}")
 
                 xkop_records.append((idx, bit_val))
-            except Exception as e:
-                log_snmp(f"  Error: {e}")
+            except (ValueError, IndexError, AttributeError) as e:
+                log_snmp(f"  Error parsing in_idx for row {r.get('nr','')}: {e}")
                 continue
 
         if xkop_records and not TEST_MODE:
@@ -540,7 +578,20 @@ def snmp_set():
         if rows:
             r = rows[0]
             try:
-                idx = int(str(r.get("in_idx", "")).split(",")[0])
+                in_idx_raw = r.get("in_idx", "")
+                if not in_idx_raw:
+                    log_snmp(f"  Row {r.get('nr','')} has no in_idx configured")
+                    return jsonify({"ok": False, "error": "no index configured"})
+                # Handle comma-separated indices, take first one
+                in_idx_parts = str(in_idx_raw).split(",")
+                if not in_idx_parts or not in_idx_parts[0].strip():
+                    log_snmp(f"  Row {r.get('nr','')} has empty in_idx")
+                    return jsonify({"ok": False, "error": "empty index"})
+                idx = int(in_idx_parts[0].strip())
+                # Validate index is in valid range (0-255)
+                if idx < 0 or idx > 255:
+                    log_snmp(f"  Row {r.get('nr','')} has invalid index {idx} (must be 0-255)")
+                    return jsonify({"ok": False, "error": "invalid index range"})
 
                 key = r.get("nr") or r.get("input") or ""
                 if key:
@@ -552,8 +603,9 @@ def snmp_set():
                     udp_send(pkt, XKOP_TX_ADDR)
                     tcp_send(pkt)
                     log_xkop(f"TX scalar {func}: idx={idx}, val={value}")
-            except Exception as e:
-                log_snmp(f"  Error: {e}")
+            except (ValueError, IndexError, AttributeError) as e:
+                log_snmp(f"  Error parsing in_idx for row {r.get('nr','')}: {e}")
+                return jsonify({"ok": False, "error": str(e)})
 
     return jsonify({"ok": True, "oid": oid, "value": value})
 
@@ -601,6 +653,9 @@ def save_config():
 
     if xkop_prt != preferred_xkop_prt:
         log_app(f"Port {preferred_xkop_prt} in use, using port {xkop_prt} instead")
+        # Update xkop_n to reflect actual port allocated
+        xkop_n = xkop_prt - 8000
+
     inst_prt=_as_int(cfg.get("snmp_port") or 161,161)
     CONFIG={"ip": (cfg.get("ip") or "").strip(), "instation_ip": (cfg.get("instation_ip") or "127.0.0.1").strip(),
         "xkop": xkop_n, "snmp_port": inst_prt, "rows": cfg.get("rows", [])}
@@ -648,9 +703,21 @@ def test_input():
     key=str(data.get("key","")).strip(); value=int(data.get("value",1))
     row=STATE["by_key"].get(key)
     if not row: return jsonify({"ok":False}),404
-    idx_src=(row.get("in_idx") or "0").split(",")[0]
-    try: idx_byte=int(idx_src)
-    except: idx_byte=0
+
+    try:
+        in_idx_raw = row.get("in_idx", "0")
+        # Handle comma-separated indices, take first one
+        in_idx_parts = str(in_idx_raw).split(",")
+        if not in_idx_parts or not in_idx_parts[0].strip():
+            idx_byte = 0
+        else:
+            idx_byte = int(in_idx_parts[0].strip())
+            # Validate index is in valid range (0-255)
+            if idx_byte < 0 or idx_byte > 255:
+                idx_byte = 0
+    except (ValueError, IndexError, AttributeError):
+        idx_byte = 0
+
     update_in_value(key,value)
     pkt=xkop_build_data([(idx_byte,value)])
     udp_send(pkt, XKOP_TX_ADDR)
@@ -738,6 +805,8 @@ if __name__=="__main__":
 
     if xkop_prt != preferred_xkop_port:
         print(f"⚠️  Port {preferred_xkop_port} in use, using port {xkop_prt} instead")
+        # Update CONFIG to reflect actual port allocated
+        CONFIG["xkop"] = xkop_prt - 8000
 
     # Flask port is always 5000 (start.sh kills any process using it)
     flask_port = 5000
