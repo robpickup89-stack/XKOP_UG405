@@ -174,11 +174,12 @@ input[type="file"]{padding:10px; cursor:pointer}
 }
 #setup-table th:nth-child(1){width:40px}
 #setup-table th:nth-child(2){width:50px}
-#setup-table th:nth-child(3),#setup-table th:nth-child(7){width:15%}
-#setup-table th:nth-child(4),#setup-table th:nth-child(8){width:10%}
-#setup-table th:nth-child(5),#setup-table th:nth-child(9){width:10%}
-#setup-table th:nth-child(6),#setup-table th:nth-child(10){width:8%}
+#setup-table th:nth-child(3),#setup-table th:nth-child(7){width:18%}
+#setup-table th:nth-child(4),#setup-table th:nth-child(8){width:8%}
+#setup-table th:nth-child(5),#setup-table th:nth-child(9){width:9%}
+#setup-table th:nth-child(6),#setup-table th:nth-child(10){width:50px; max-width:50px}
 .table input,.table select{height:32px; min-width:60px; font-size:.85rem; padding:0 6px}
+#setup-table .in-idx,#setup-table .out-idx{max-width:50px; width:50px; min-width:40px; font-size:.8rem; padding:0 4px}
 
 /* Badges & Pills */
 .small{font-size:.82rem; color:var(--muted)}
@@ -392,12 +393,12 @@ input[type="checkbox"]{
         <span class="small">Index (Idx) is only used for bitmask functions (those ending with "n")</span>
       </div>
 
-      <div style="overflow-x:auto">
+      <div>
         <table class="table" id="setup-table">
           <thead>
             <tr>
               <th style="width:40px"><input type="checkbox" id="select-all"></th>
-              <th style="width:70px">ID</th>
+              <th style="width:50px">ID</th>
               <th>Input</th><th>SCN (in)</th><th>Func (in)</th><th>Idx (in)</th>
               <th>Output</th><th>SCN (out)</th><th>Func (out)</th><th>Idx (out)</th>
             </tr>
