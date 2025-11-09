@@ -128,7 +128,9 @@ def update_out_value(key: str, value):
             STATE["last_update"] = time.time()
 
 # ===================== XKOP =====================
-XKOP_HDR1, XKOP_HDR2, XKOP_TYPE_DATA = 0xCA, 0x35, 0x00
+XKOP_HDR1, XKOP_HDR2 = 0xCA, 0x35
+XKOP_TYPE_DATA = 0x00  # Type for data messages we send
+XKOP_TYPE_STATUS = 0x02  # Type for status messages from controller
 XKOP_LISTEN_ADDR = ("0.0.0.0", 8001)
 XKOP_TX_ADDR     = ("127.0.0.1", 8001)
 xkop_listener_sock: Optional[socket.socket] = None
@@ -183,8 +185,9 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
     if packet[1] != XKOP_HDR2:
         log_xkop(f"  Parse fail: wrong HDR2 0x{packet[1]:02X}, expected 0x{XKOP_HDR2:02X}")
         return None
-    if packet[2] != XKOP_TYPE_DATA:
-        log_xkop(f"  Parse fail: wrong TYPE 0x{packet[2]:02X}, expected 0x{XKOP_TYPE_DATA:02X}")
+    # Accept both TYPE 0x00 (data) and TYPE 0x02 (status) messages
+    if packet[2] not in (XKOP_TYPE_DATA, XKOP_TYPE_STATUS):
+        log_xkop(f"  Parse fail: unknown TYPE 0x{packet[2]:02X}, expected 0x{XKOP_TYPE_DATA:02X} or 0x{XKOP_TYPE_STATUS:02X}")
         return None
 
     # Check CRC
@@ -651,6 +654,7 @@ def test_input():
     update_in_value(key,value)
     pkt=xkop_build_data([(idx_byte,value)])
     udp_send(pkt, XKOP_TX_ADDR)
+    tcp_send(pkt)  # Also send via TCP when connected
     return jsonify({"ok":True})
 
 @app.post("/test/output")
