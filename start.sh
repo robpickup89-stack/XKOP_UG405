@@ -14,16 +14,50 @@ cd "$SCRIPT_DIR" || exit 1
 echo "Working directory: $SCRIPT_DIR"
 echo ""
 
+# Check if venv module is available
+if ! python3 -m venv --help >/dev/null 2>&1; then
+    echo "⚠️  venv module not found. Attempting to install..."
+    echo ""
+
+    # Try to install python3-venv (for Debian/Ubuntu systems)
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "Installing python3-venv using apt-get..."
+        sudo apt-get update
+        sudo apt-get install -y python3-venv
+    elif command -v yum >/dev/null 2>&1; then
+        echo "Installing python3-venv using yum..."
+        sudo yum install -y python3-venv
+    elif command -v dnf >/dev/null 2>&1; then
+        echo "Installing python3-venv using dnf..."
+        sudo dnf install -y python3-venv
+    else
+        echo "❌ ERROR: Could not install venv automatically."
+        echo "Please install python3-venv manually for your system."
+        exit 1
+    fi
+
+    # Verify installation
+    if ! python3 -m venv --help >/dev/null 2>&1; then
+        echo "❌ ERROR: venv installation failed!"
+        exit 1
+    fi
+
+    echo "✅ venv module installed successfully"
+    echo ""
+fi
+
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
-    echo "❌ ERROR: Virtual environment not found!"
+    echo "📦 Creating virtual environment..."
+    python3 -m venv venv
+
+    if [ $? -ne 0 ]; then
+        echo "❌ ERROR: Failed to create virtual environment!"
+        exit 1
+    fi
+
+    echo "✅ Virtual environment created"
     echo ""
-    echo "Please create the virtual environment first:"
-    echo "  python3 -m venv venv"
-    echo "  source venv/bin/activate"
-    echo "  pip install flask"
-    echo ""
-    exit 1
 fi
 
 # Activate virtual environment
@@ -32,13 +66,18 @@ source venv/bin/activate
 
 # Check if Flask is installed
 if ! python -c "import flask" 2>/dev/null; then
-    echo "❌ ERROR: Flask is not installed in the virtual environment!"
+    echo "📦 Flask not found. Installing Flask..."
     echo ""
-    echo "Please install Flask:"
-    echo "  source venv/bin/activate"
-    echo "  pip install flask"
+    pip install flask
+
+    if [ $? -ne 0 ]; then
+        echo "❌ ERROR: Failed to install Flask!"
+        exit 1
+    fi
+
     echo ""
-    exit 1
+    echo "✅ Flask installed successfully"
+    echo ""
 fi
 
 echo "✅ Virtual environment activated"
