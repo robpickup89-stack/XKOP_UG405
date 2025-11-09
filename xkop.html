@@ -1244,13 +1244,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       body:JSON.stringify({enabled:true})
     });
     if(res.ok){
-      const data = await res.json();
-      // Update local state directly to avoid re-fetching
-      STATE.test_mode = data.enabled;
-      STATE.expires = data.expires;
-      setTestUi(STATE.test_mode, STATE.expires);
-      renderTest();
-      showNotification('warning', '⚠️ Test Mode ENABLED');
+      // Refresh state from server to get updated output values (all set to 0)
+      await refreshState(false);
+      showNotification('warning', '⚠️ Test Mode ENABLED - All outputs set to 0');
     }
   };
 
@@ -1261,13 +1257,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       body:JSON.stringify({enabled:false})
     });
     if(res.ok){
-      const data = await res.json();
-      // Update local state directly to avoid re-fetching
-      STATE.test_mode = data.enabled;
-      STATE.expires = null;
-      setTestUi(STATE.test_mode, STATE.expires);
-      renderTest();
-      showNotification('success', '✓ Test Mode DISABLED');
+      // Refresh state from server to get updated output values (all set to 0)
+      await refreshState(false);
+      showNotification('success', '✓ Test Mode DISABLED - All outputs set to 0');
     }
   };
   

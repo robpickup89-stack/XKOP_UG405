@@ -902,13 +902,27 @@ def set_test_mode():
     # State is changing - proceed with the change
     TEST_MODE = requested_state
     if TEST_MODE:
-        # Don't modify output values when entering test mode - keep current state
+        # Set all output values to 0 when entering test mode
+        with STATE_LOCK:
+            set_count = 0
+            for row in STATE["rows"]:
+                if row.get("out_value") is not None or row.get("output"):
+                    row["out_value"] = 0
+                    set_count += 1
+            STATE["last_update"] = time.time()
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
-        log_app(f"✓ Test mode ENABLED. Outputs remain at current values. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
+        log_app(f"✓ Test mode ENABLED. Set {set_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
-        # Don't modify output values when disabling test mode - keep current state
+        # Set all output values to 0 when disabling test mode
         TEST_MODE_EXPIRY=None
-        log_app(f"✓ Test mode DISABLED. Outputs remain at current values.")
+        with STATE_LOCK:
+            reset_count = 0
+            for row in STATE["rows"]:
+                if row.get("out_value") is not None or row.get("output"):
+                    row["out_value"] = 0
+                    reset_count += 1
+            STATE["last_update"] = time.time()
+            log_app(f"✓ Test mode DISABLED. Reset {reset_count} output values to 0.")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
