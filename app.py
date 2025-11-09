@@ -276,28 +276,53 @@ def xkop_listener():
                 with STATE_LOCK:
                     rows = STATE["rows"][:]
 
+                # Log received records for debugging
+                if recs:
+                    log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
+
                 for (idx,val) in recs:
+                    matched = False
                     for r in rows:
                         try:
                             out_idx_raw = r.get("out_idx", "")
                             if not out_idx_raw:
                                 continue
+
                             # Handle comma-separated indices, take first one
-                            out_idx_parts = str(out_idx_raw).split(",")
-                            if not out_idx_parts or not out_idx_parts[0].strip():
+                            out_idx_str = str(out_idx_raw).strip()
+                            if not out_idx_str:
                                 continue
-                            ridx = int(out_idx_parts[0].strip())
+
+                            # Split and validate
+                            out_idx_parts = out_idx_str.split(",")
+                            if len(out_idx_parts) == 0:
+                                log_xkop(f"  WARNING: Row {r.get('nr','')} split resulted in empty list from '{out_idx_raw}'")
+                                continue
+
+                            first_idx = out_idx_parts[0].strip()
+                            if not first_idx:
+                                continue
+
+                            ridx = int(first_idx)
                             # Validate index is in valid range (0-255)
                             if ridx < 0 or ridx > 255:
                                 continue
                         except (ValueError, IndexError, AttributeError) as e:
-                            log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
+                            log_xkop(f"  Error parsing out_idx for row {r.get('nr','')} (out_idx={r.get('out_idx','')}): {type(e).__name__}: {e}")
+                            continue
+                        except Exception as e:
+                            log_xkop(f"  Unexpected error parsing out_idx for row {r.get('nr','')}: {type(e).__name__}: {e}")
                             continue
 
                         if ridx == idx:
                             key = r.get("nr") or r.get("output") or ""
-                            update_out_value(key, val)
-                            log_xkop(f"  Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                            if key:
+                                update_out_value(key, val)
+                                log_xkop(f"  Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                                matched = True
+
+                    if not matched:
+                        log_xkop(f"  No row matched idx={idx} (value={val})")
 
         except Exception as e:
             log_xkop(f"ERR {e}")
@@ -362,28 +387,53 @@ def xkop_tcp_listener():
                     with STATE_LOCK:
                         rows = STATE["rows"][:]
 
+                    # Log received records for debugging
+                    if recs:
+                        log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
+
                     for (idx, val) in recs:
+                        matched = False
                         for r in rows:
                             try:
                                 out_idx_raw = r.get("out_idx", "")
                                 if not out_idx_raw:
                                     continue
+
                                 # Handle comma-separated indices, take first one
-                                out_idx_parts = str(out_idx_raw).split(",")
-                                if not out_idx_parts or not out_idx_parts[0].strip():
+                                out_idx_str = str(out_idx_raw).strip()
+                                if not out_idx_str:
                                     continue
-                                ridx = int(out_idx_parts[0].strip())
+
+                                # Split and validate
+                                out_idx_parts = out_idx_str.split(",")
+                                if len(out_idx_parts) == 0:
+                                    log_xkop(f"  WARNING: Row {r.get('nr','')} split resulted in empty list from '{out_idx_raw}'")
+                                    continue
+
+                                first_idx = out_idx_parts[0].strip()
+                                if not first_idx:
+                                    continue
+
+                                ridx = int(first_idx)
                                 # Validate index is in valid range (0-255)
                                 if ridx < 0 or ridx > 255:
                                     continue
                             except (ValueError, IndexError, AttributeError) as e:
-                                log_xkop(f"  Error parsing out_idx for row {r.get('nr','')}: {e}")
+                                log_xkop(f"  Error parsing out_idx for row {r.get('nr','')} (out_idx={r.get('out_idx','')}): {type(e).__name__}: {e}")
+                                continue
+                            except Exception as e:
+                                log_xkop(f"  Unexpected error parsing out_idx for row {r.get('nr','')}: {type(e).__name__}: {e}")
                                 continue
 
                             if ridx == idx:
                                 key = r.get("nr") or r.get("output") or ""
-                                update_out_value(key, val)
-                                log_xkop(f"  TCP Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                                if key:
+                                    update_out_value(key, val)
+                                    log_xkop(f"  TCP Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+                                    matched = True
+
+                        if not matched:
+                            log_xkop(f"  No row matched idx={idx} (value={val})")
 
                 except socket.timeout:
                     # Timeout is normal, just continue
