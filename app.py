@@ -172,12 +172,43 @@ CRC_TABLE = [
     0x2bc7, 0x244e, 0x34d5, 0x3b5c, 0x15e3, 0x1a6a, 0x0af1, 0x0578,
 ]
 
-def xkop_crc(data: bytes) -> int:
-    crc = 0
-    for b in data:
-        t = CRC_TABLE[(crc ^ b) & 0xFF]
-        crc = ((crc >> 8) ^ t) & 0xFFFF
-    return crc
+def xkop_crc(data: bytes) -> bytes:
+    """
+    Calculate CRC16 for XKOP packet using official algorithm.
+    Returns 2 bytes: [crc1, crc0] matching the C specification.
+
+    Based on the official C implementation:
+        temp = (crc1 ^ byte);
+        crc1 = (crc0 ^ crc_table[temp]);
+        crc0 = (crc_table[temp] >> 8);
+    """
+    crc1 = 0
+    crc0 = 0
+
+    for byte_val in data:
+        temp = (crc1 ^ byte_val) & 0xFF
+        crc1 = (crc0 ^ CRC_TABLE[temp]) & 0xFF
+        crc0 = (CRC_TABLE[temp] >> 8) & 0xFF
+
+    return bytes([crc1, crc0])
+
+def xkop_crc_check(packet: bytes) -> bool:
+    """
+    Verify CRC16 for XKOP packet (full 17 bytes including CRC).
+    Returns True if CRC is valid.
+
+    Based on the official C implementation:
+        After processing all bytes including CRC, both crc1 and crc0 should be 0.
+    """
+    crc1 = 0
+    crc0 = 0
+
+    for byte_val in packet:
+        temp = (crc1 ^ byte_val) & 0xFF
+        crc1 = (crc0 ^ CRC_TABLE[temp]) & 0xFF
+        crc0 = (CRC_TABLE[temp] >> 8) & 0xFF
+
+    return (crc1 == 0) and (crc0 == 0)
 
 def xkop_build_data(records: List[Tuple[int,int]]) -> bytes:
     data = bytearray()
@@ -190,8 +221,8 @@ def xkop_build_data(records: List[Tuple[int,int]]) -> bytes:
         else:
             data += b"\xFF\x00\x00"
     header = bytes([XKOP_HDR1, XKOP_HDR2, XKOP_TYPE_DATA])
-    crc = xkop_crc(header + data)
-    return header + data + struct.pack("<H", crc)  # Little-endian
+    crc_bytes = xkop_crc(header + data)  # Returns [crc1, crc0]
+    return header + data + crc_bytes
 
 def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
     """Parse XKOP packet and return list of (index, value) tuples.
@@ -220,16 +251,18 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         log_xkop(f"  Parse fail: unknown TYPE 0x{msg_type:02X}, expected 0x{XKOP_TYPE_DATA:02X} or 0x{XKOP_TYPE_ALIVE:02X}")
         return None
 
-    # Check CRC
+    # Check CRC using official algorithm
     try:
-        calc = xkop_crc(packet[:15])
-        crc_bytes = packet[15:17]
-        if len(crc_bytes) != 2:
-            log_xkop(f"  Parse fail: CRC bytes length {len(crc_bytes)}, expected 2")
+        calc_crc = xkop_crc(packet[:15])  # Returns [crc1, crc0]
+        recv_crc = packet[15:17]
+        if len(recv_crc) != 2:
+            log_xkop(f"  Parse fail: CRC bytes length {len(recv_crc)}, expected 2")
             return None
-        recv = struct.unpack("<H", crc_bytes)[0]  # Little-endian
-        if calc != recv:
-            log_xkop(f"  Parse fail: CRC mismatch calc=0x{calc:04X} recv=0x{recv:04X}")
+        if calc_crc != recv_crc:
+            # Format for logging: show both as hex bytes
+            calc_hex = ' '.join(f'{b:02X}' for b in calc_crc)
+            recv_hex = ' '.join(f'{b:02X}' for b in recv_crc)
+            log_xkop(f"  Parse fail: CRC mismatch calc={calc_hex} recv={recv_hex}")
             return None
     except (IndexError, struct.error) as e:
         log_xkop(f"  Parse fail: CRC check error: {e}")
