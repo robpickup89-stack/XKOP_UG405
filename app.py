@@ -221,11 +221,24 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         return None
 
     recs = []
-    for i in range(0, 12, 3):
-        idx = p[i]
-        val = (p[i+1] << 8) | p[i+2]
-        if idx != 0xFF:
-            recs.append((idx, val))
+    try:
+        for i in range(0, 12, 3):
+            # Defensive check to ensure we don't exceed bounds
+            if i + 2 >= len(p):
+                log_xkop(f"  Parse fail: index {i+2} exceeds payload length {len(p)}")
+                return None
+
+            idx = p[i]
+            val = (p[i+1] << 8) | p[i+2]
+            if idx != 0xFF:
+                recs.append((idx, val))
+    except IndexError as e:
+        log_xkop(f"  Parse fail: IndexError at position {i}: {e}, payload length: {len(p)}")
+        return None
+    except Exception as e:
+        log_xkop(f"  Parse fail: unexpected error: {e}")
+        return None
+
     return recs
 
 def udp_send(data: bytes, target: Tuple[str,int]):
@@ -347,11 +360,24 @@ def xkop_tcp_listener():
                             break
                         data += chunk
 
+                    # Validate we received complete packet
                     if len(data) != 17:
+                        if len(data) > 0:
+                            log_xkop(f"TCP incomplete packet received: {len(data)} bytes (expected 17)")
                         break
 
-                    # Parse XKOP message
-                    recs = xkop_parse_data(data)
+                    # Parse XKOP message with additional error handling
+                    try:
+                        recs = xkop_parse_data(data)
+                    except IndexError as e:
+                        hex_data = ' '.join(f'{b:02X}' for b in data) if data else ''
+                        log_xkop(f"TCP parse IndexError: {e}, data: {hex_data}")
+                        continue
+                    except Exception as e:
+                        hex_data = ' '.join(f'{b:02X}' for b in data) if data else ''
+                        log_xkop(f"TCP parse error: {e}, data: {hex_data}")
+                        continue
+
                     if recs is None:
                         hex_data = ' '.join(f'{b:02X}' for b in data)
                         log_xkop(f"TCP invalid XKOP from controller, received: {hex_data}")
@@ -365,33 +391,55 @@ def xkop_tcp_listener():
 
                     # Log received records for debugging
                     if recs:
-                        log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
+                        try:
+                            log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
+                        except Exception as e:
+                            log_xkop(f"  Error logging records: {e}, recs type: {type(recs)}")
 
                     # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
-                    for (idx, val) in recs:
-                        # Convert XKOP index to row number (0→1, 1→2, etc.)
-                        target_row_nr = str(idx + 1)
+                    for rec in recs:
+                        try:
+                            # Validate record structure
+                            if not isinstance(rec, tuple) or len(rec) != 2:
+                                log_xkop(f"  Invalid record structure: {rec}")
+                                continue
 
-                        # Find row with this number
-                        matched = False
-                        for r in rows:
-                            row_nr = str(r.get("nr", "")).strip()
-                            if row_nr == target_row_nr:
-                                key = r.get("nr") or r.get("output") or ""
-                                if key:
-                                    update_out_value(key, val)
-                                    log_xkop(f"  TCP Updated output row {row_nr} (XKOP idx={idx}) = {val}")
-                                    matched = True
-                                break
+                            idx, val = rec
 
-                        if not matched:
-                            log_xkop(f"  TCP No row found with nr={target_row_nr} for XKOP idx={idx} (value={val})")
+                            # Validate index and value types
+                            if not isinstance(idx, int) or not isinstance(val, int):
+                                log_xkop(f"  Invalid record types: idx={type(idx)}, val={type(val)}")
+                                continue
+
+                            # Convert XKOP index to row number (0→1, 1→2, etc.)
+                            target_row_nr = str(idx + 1)
+
+                            # Find row with this number
+                            matched = False
+                            for r in rows:
+                                row_nr = str(r.get("nr", "")).strip()
+                                if row_nr == target_row_nr:
+                                    key = r.get("nr") or r.get("output") or ""
+                                    if key:
+                                        update_out_value(key, val)
+                                        log_xkop(f"  TCP Updated output row {row_nr} (XKOP idx={idx}) = {val}")
+                                        matched = True
+                                    break
+
+                            if not matched:
+                                log_xkop(f"  TCP No row found with nr={target_row_nr} for XKOP idx={idx} (value={val})")
+
+                        except Exception as e:
+                            log_xkop(f"  Error processing record {rec}: {e}")
+                            continue
 
                 except socket.timeout:
                     # Timeout is normal, just continue
                     continue
                 except Exception as e:
+                    import traceback
                     log_xkop(f"TCP receive error: {e}")
+                    log_xkop(f"Traceback: {traceback.format_exc()}")
                     break
 
         except ConnectionRefusedError:
