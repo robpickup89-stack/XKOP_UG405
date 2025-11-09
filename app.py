@@ -551,7 +551,19 @@ def save_config():
     cfg=request.get_json(force=True) or {}
     xkop_n=_as_int(cfg.get("xkop") or 1,1)
     preferred_xkop_prt=8000 + xkop_n
-    xkop_prt=find_available_port(preferred_xkop_prt, check_both_protocols=True)
+
+    # Ensure preferred port is within valid range (8001-8020)
+    if preferred_xkop_prt < 8001 or preferred_xkop_prt > 8020:
+        preferred_xkop_prt = 8001
+
+    # Only search within 8001-8020 range
+    max_attempts = 8020 - preferred_xkop_prt + 1
+    xkop_prt=find_available_port(preferred_xkop_prt, max_attempts=max_attempts, check_both_protocols=True)
+
+    # Verify final port is in valid range
+    if xkop_prt < 8001 or xkop_prt > 8020:
+        xkop_prt = preferred_xkop_prt  # Will fail with clear error
+
     if xkop_prt != preferred_xkop_prt:
         log_app(f"Port {preferred_xkop_prt} in use, using port {xkop_prt} instead")
     inst_prt=_as_int(cfg.get("snmp_port") or 161,161)
@@ -671,16 +683,25 @@ if __name__=="__main__":
     print("="*60)
     with STATE_LOCK: seed_rows_from_config_locked()
 
-    # Find available ports
+    # Find available XKOP port (limited to 8001-8020 range)
     preferred_xkop_port = 8000 + int(CONFIG.get("xkop",1))
-    xkop_prt = find_available_port(preferred_xkop_port, check_both_protocols=True)
+    # Ensure preferred port is within valid range
+    if preferred_xkop_port < 8001 or preferred_xkop_port > 8020:
+        preferred_xkop_port = 8001
+
+    # Only search within 8001-8020 range
+    max_attempts = 8020 - preferred_xkop_port + 1
+    xkop_prt = find_available_port(preferred_xkop_port, max_attempts=max_attempts, check_both_protocols=True)
+
+    # Verify final port is in valid range
+    if xkop_prt < 8001 or xkop_prt > 8020:
+        xkop_prt = preferred_xkop_port  # Will fail with clear error
+
     if xkop_prt != preferred_xkop_port:
         print(f"⚠️  Port {preferred_xkop_port} in use, using port {xkop_prt} instead")
 
-    preferred_flask_port = 5000
-    flask_port = find_available_port(preferred_flask_port, check_both_protocols=False)
-    if flask_port != preferred_flask_port:
-        print(f"⚠️  Port {preferred_flask_port} in use, using port {flask_port} instead")
+    # Flask port is always 5000 (start.sh kills any process using it)
+    flask_port = 5000
 
     XKOP_LISTEN_ADDR = ("0.0.0.0", xkop_prt)
     XKOP_TX_ADDR = ((CONFIG.get("ip") or "127.0.0.1"), xkop_prt)
