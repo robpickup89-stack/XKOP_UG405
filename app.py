@@ -129,8 +129,9 @@ def update_out_value(key: str, value):
 
 # ===================== XKOP =====================
 XKOP_HDR1, XKOP_HDR2 = 0xCA, 0x35
-XKOP_TYPE_DATA = 0x00  # Type for data messages we send
-XKOP_TYPE_STATUS = 0x02  # Type for status messages from controller
+XKOP_TYPE_DATA = 0x00    # Type 0: Data message (contains variables)
+XKOP_TYPE_TIME = 0x01    # Type 1: Time message
+XKOP_TYPE_ALIVE = 0x02   # Type 2: Alive message (keep-alive, no data)
 XKOP_LISTEN_ADDR = ("0.0.0.0", 8001)
 XKOP_TX_ADDR     = ("127.0.0.1", 8001)
 xkop_listener_sock: Optional[socket.socket] = None
@@ -175,6 +176,13 @@ def xkop_build_data(records: List[Tuple[int,int]]) -> bytes:
     return header + data + struct.pack(">H", crc)
 
 def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
+    """Parse XKOP packet and return list of (index, value) tuples.
+
+    Returns:
+        - List of (index, value) tuples for data messages (type 0x00)
+        - Empty list for alive messages (type 0x02)
+        - None for invalid packets
+    """
     # Check packet length and headers
     if len(packet) != 17:
         log_xkop(f"  Parse fail: wrong length {len(packet)}, expected 17")
@@ -185,9 +193,13 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
     if packet[1] != XKOP_HDR2:
         log_xkop(f"  Parse fail: wrong HDR2 0x{packet[1]:02X}, expected 0x{XKOP_HDR2:02X}")
         return None
-    # Accept both TYPE 0x00 (data) and TYPE 0x02 (status) messages
-    if packet[2] not in (XKOP_TYPE_DATA, XKOP_TYPE_STATUS):
-        log_xkop(f"  Parse fail: unknown TYPE 0x{packet[2]:02X}, expected 0x{XKOP_TYPE_DATA:02X} or 0x{XKOP_TYPE_STATUS:02X}")
+
+    # Get message type
+    msg_type = packet[2]
+
+    # Accept data (0x00) and alive (0x02) messages
+    if msg_type not in (XKOP_TYPE_DATA, XKOP_TYPE_ALIVE):
+        log_xkop(f"  Parse fail: unknown TYPE 0x{msg_type:02X}, expected 0x{XKOP_TYPE_DATA:02X} or 0x{XKOP_TYPE_ALIVE:02X}")
         return None
 
     # Check CRC
@@ -197,7 +209,12 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         log_xkop(f"  Parse fail: CRC mismatch calc=0x{calc:04X} recv=0x{recv:04X}")
         return None
 
-    # Extract records
+    # Alive messages (type 0x02) have no data records - just return empty list
+    if msg_type == XKOP_TYPE_ALIVE:
+        log_xkop(f"  Received alive message (keep-alive)")
+        return []
+
+    # Extract records from data messages (type 0x00)
     p = packet[3:15]
     if len(p) != 12:
         log_xkop(f"  Parse fail: payload length {len(p)}, expected 12")
