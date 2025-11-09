@@ -469,8 +469,8 @@ def snmp_get():
     direction, func, preIndex, scn = parsed
     if direction != 'out':
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
-    # ✅ ALL outputs must have preIndex = 0
-    if preIndex != 0:
+    # ✅ Outputs accept both preIndex 0 and 1
+    if preIndex not in (0, 1):
         return jsonify({"oid": oid, "value": 0, "type": "integer"})
     func_info = REPLY_FUNCS.get(func)
     if not func_info:
