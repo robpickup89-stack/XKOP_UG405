@@ -272,99 +272,103 @@ def xkop_listener():
             except: pass
             time.sleep(1.0)
 
+def xkop_tcp_client_handler(conn: socket.socket, addr: tuple):
+    """Handle individual TCP client connection for XKOP protocol"""
+    try:
+        log_xkop(f"TCP client connected from {addr[0]}:{addr[1]}")
+        conn.settimeout(30.0)  # 30 second timeout per connection
+
+        while True:
+            # Read exactly 17 bytes for XKOP message
+            data = b''
+            while len(data) < 17:
+                try:
+                    chunk = conn.recv(17 - len(data))
+                    if not chunk:
+                        # Connection closed by client
+                        log_xkop(f"TCP client {addr[0]}:{addr[1]} disconnected")
+                        return
+                    data += chunk
+                except socket.timeout:
+                    log_xkop(f"TCP client {addr[0]}:{addr[1]} timeout")
+                    return
+                except Exception as e:
+                    log_xkop(f"TCP read error from {addr[0]}:{addr[1]}: {e}")
+                    return
+
+            # Parse XKOP message
+            recs = xkop_parse_data(data)
+            if recs is None:
+                hex_data = ' '.join(f'{b:02X}' for b in data)
+                log_xkop(f"TCP invalid XKOP from {addr[0]}:{addr[1]}, received: {hex_data}")
+                continue
+
+            log_xkop(f"TCP RX from {addr}: {recs}")
+
+            # Update output values (same as UDP)
+            with STATE_LOCK:
+                rows = STATE["rows"][:]
+
+            for (idx, val) in recs:
+                for r in rows:
+                    try:
+                        out_idx_str = str(r.get("out_idx", "")).split(",")[0]
+                        if not out_idx_str:
+                            continue
+                        ridx = int(out_idx_str)
+                    except:
+                        continue
+
+                    if ridx == idx:
+                        key = r.get("nr") or r.get("output") or ""
+                        update_out_value(key, val)
+                        log_xkop(f"  TCP Updated output row {r.get('nr','')} (idx={idx}) = {val}")
+
+    except Exception as e:
+        log_xkop(f"TCP client handler error for {addr}: {e}")
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
 def xkop_tcp_listener():
-    """Connect to controller as TCP client for bidirectional XKOP communication"""
+    """Accept TCP connections for XKOP protocol"""
     global xkop_tcp_listener_sock
     while True:
         try:
-            # Get controller address
-            controller_ip = XKOP_TX_ADDR[0]
-            controller_port = XKOP_TX_ADDR[1]
-
-            if not controller_ip or controller_ip == "127.0.0.1":
-                log_xkop(f"TCP waiting for controller IP to be set...")
-                time.sleep(5.0)
-                continue
-
-            # Connect to controller
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.settimeout(5.0)  # 5 second timeout for connect
-
-            log_xkop(f"TCP connecting to controller {controller_ip}:{controller_port}...")
-            sock.connect((controller_ip, controller_port))
-            log_xkop(f"TCP connected to controller {controller_ip}:{controller_port}")
-
+            sock.bind(XKOP_LISTEN_ADDR)
+            sock.listen(5)  # Allow up to 5 pending connections
+            sock.settimeout(1.0)
             xkop_tcp_listener_sock = sock
-            sock.settimeout(1.0)  # 1 second timeout for recv (to check for reconnect)
+            log_xkop(f"Listening TCP {XKOP_LISTEN_ADDR[0]}:{XKOP_LISTEN_ADDR[1]}")
 
-            # Receive loop
             while True:
                 try:
-                    # Read exactly 17 bytes for XKOP message
-                    data = b''
-                    while len(data) < 17:
-                        chunk = sock.recv(17 - len(data))
-                        if not chunk:
-                            # Connection closed by controller
-                            log_xkop(f"TCP controller {controller_ip}:{controller_port} disconnected")
-                            break
-                        data += chunk
-
-                    if len(data) != 17:
-                        break
-
-                    # Parse XKOP message
-                    recs = xkop_parse_data(data)
-                    if recs is None:
-                        hex_data = ' '.join(f'{b:02X}' for b in data)
-                        log_xkop(f"TCP invalid XKOP from controller, received: {hex_data}")
-                        continue
-
-                    log_xkop(f"TCP RX from controller: {recs}")
-
-                    # Update output values
-                    with STATE_LOCK:
-                        rows = STATE["rows"][:]
-
-                    for (idx, val) in recs:
-                        for r in rows:
-                            try:
-                                out_idx_str = str(r.get("out_idx", "")).split(",")[0]
-                                if not out_idx_str:
-                                    continue
-                                ridx = int(out_idx_str)
-                            except:
-                                continue
-
-                            if ridx == idx:
-                                key = r.get("nr") or r.get("output") or ""
-                                update_out_value(key, val)
-                                log_xkop(f"  TCP Updated output row {r.get('nr','')} (idx={idx}) = {val}")
-
+                    conn, addr = sock.accept()
+                    # Handle each client in a separate thread
+                    client_thread = threading.Thread(
+                        target=xkop_tcp_client_handler,
+                        args=(conn, addr),
+                        daemon=True
+                    )
+                    client_thread.start()
                 except socket.timeout:
-                    # Timeout is normal, just continue
                     continue
-                except Exception as e:
-                    log_xkop(f"TCP receive error: {e}")
+                except OSError:
                     break
 
-        except ConnectionRefusedError:
-            log_xkop(f"TCP connection refused by {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
-            time.sleep(5.0)
-        except socket.timeout:
-            log_xkop(f"TCP connection timeout to {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
-            time.sleep(5.0)
         except Exception as e:
-            log_xkop(f"TCP client ERR {e}")
-            time.sleep(5.0)
+            log_xkop(f"TCP listener ERR {e}")
         finally:
             try:
                 if xkop_tcp_listener_sock:
                     xkop_tcp_listener_sock.close()
-                    xkop_tcp_listener_sock = None
             except:
                 pass
+            time.sleep(1.0)
 
 # ===================== UTMC OID Functions =====================
 CONTROL_FUNCS: Dict[str, Tuple[str, str]] = {
