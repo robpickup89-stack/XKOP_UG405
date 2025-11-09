@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Test different CRC algorithm variations"""
+
+CRC_TABLE = [
+    0x0000, 0x0f89, 0x1f12, 0x109b, 0x3e24, 0x31ad, 0x2136, 0x2ebf,
+    0x7c48, 0x73c1, 0x635a, 0x6cd3, 0x426c, 0x4de5, 0x5d7e, 0x52f7,
+    0xf081, 0xff08, 0xef93, 0xe01a, 0xcea5, 0xc12c, 0xd1b7, 0xde3e,
+    0x8cc9, 0x8340, 0x93db, 0x9c52, 0xb2ed, 0xbd64, 0xadff, 0xa276,
+    0xe102, 0xee8b, 0xfe10, 0xf199, 0xdf26, 0xd0af, 0xc034, 0xcfbd,
+    0x9d4a, 0x92c3, 0x8258, 0x8dd1, 0xa36e, 0xace7, 0xbc7c, 0xb3f5,
+    0x1183, 0x1e0a, 0x0e91, 0x0118, 0x2fa7, 0x202e, 0x30b5, 0x3f3c,
+    0x6dcb, 0x6242, 0x72d9, 0x7d50, 0x53ef, 0x5c66, 0x4cfd, 0x4374,
+    0xc204, 0xcd8d, 0xdd16, 0xd29f, 0xfc20, 0xf3a9, 0xe332, 0xecbb,
+    0xbe4c, 0xb1c5, 0xa15e, 0xaed7, 0x8068, 0x8fe1, 0x9f7a, 0x90f3,
+    0x3285, 0x3d0c, 0x2d97, 0x221e, 0x0ca1, 0x0328, 0x13b3, 0x1c3a,
+    0x4ecd, 0x4144, 0x51df, 0x5e56, 0x70e9, 0x7f60, 0x6ffb, 0x6072,
+    0x2306, 0x2c8f, 0x3c14, 0x339d, 0x1d22, 0x12ab, 0x0230, 0x0db9,
+    0x5f4e, 0x50c7, 0x405c, 0x4fd5, 0x616a, 0x6ee3, 0x7e78, 0x71f1,
+    0xd387, 0xdc0e, 0xcc95, 0xc31c, 0xeda3, 0xe22a, 0xf2b1, 0xfd38,
+    0xafcf, 0xa046, 0xb0dd, 0xbf54, 0x91eb, 0x9e62, 0x8ef9, 0x8170,
+    0x8408, 0x8b81, 0x9b1a, 0x9493, 0xba2c, 0xb5a5, 0xa53e, 0xaab7,
+    0xf840, 0xf7c9, 0xe752, 0xe8db, 0xc664, 0xc9ed, 0xd976, 0xd6ff,
+    0x7489, 0x7b00, 0x6b9b, 0x6412, 0x4aad, 0x4524, 0x55bf, 0x5a36,
+    0x08c1, 0x0748, 0x17d3, 0x185a, 0x36e5, 0x396c, 0x29f7, 0x267e,
+    0x650a, 0x6a83, 0x7a18, 0x7591, 0x5b2e, 0x54a7, 0x443c, 0x4bb5,
+    0x1942, 0x16cb, 0x0650, 0x09d9, 0x2766, 0x28ef, 0x3874, 0x37fd,
+    0x958b, 0x9a02, 0x8a99, 0x8510, 0xabaf, 0xa426, 0xb4bd, 0xbb34,
+    0xe9c3, 0xe64a, 0xf6d1, 0xf958, 0xd7e7, 0xd86e, 0xc8f5, 0xc77c,
+    0x460c, 0x4985, 0x591e, 0x5697, 0x7828, 0x77a1, 0x673a, 0x68b3,
+    0x3a44, 0x35cd, 0x2556, 0x2adf, 0x0460, 0x0be9, 0x1b72, 0x14fb,
+    0xb68d, 0xb904, 0xa99f, 0xa616, 0x88a9, 0x8720, 0x97bb, 0x9832,
+    0xcac5, 0xc54c, 0xd5d7, 0xda5e, 0xf4e1, 0xfb68, 0xebf3, 0xe47a,
+    0xa70e, 0xa887, 0xb81c, 0xb795, 0x992a, 0x96a3, 0x8638, 0x89b1,
+    0xdb46, 0xd4cf, 0xc454, 0xcbdd, 0xe562, 0xeaeb, 0xfa70, 0xf5f9,
+    0x578f, 0x5806, 0x489d, 0x4714, 0x69ab, 0x6622, 0x76b9, 0x7930,
+    0x2bc7, 0x244e, 0x34d5, 0x3b5c, 0x15e3, 0x1a6a, 0x0af1, 0x0578,
+]
+
+def test_algorithm(name, func, data, expected):
+    """Test a CRC algorithm variant"""
+    result = func(data)
+    match = result == expected
+    print(f"{name:40} {' '.join(f'{b:02X}' for b in result):10} {'✓' if match else '✗'}")
+    return match
+
+# Test data
+data = bytes.fromhex("CA 35 02 00 00 00 00 00 00 00 00 00 00 00 00")
+expected = bytes.fromhex("9B A0")
+
+print(f"Testing packet: {' '.join(f'{b:02X}' for b in data)}")
+print(f"Expected CRC:   {' '.join(f'{b:02X}' for b in expected)}")
+print("=" * 80)
+print(f"{'Algorithm':40} {'Result':10} {'Match'}")
+print("=" * 80)
+
+# Variation 1: Standard CRC-16 using high byte for lookup
+def crc_v1(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        crc = ((crc << 8) & 0xFFFF) ^ CRC_TABLE[(crc >> 8) ^ byte_val]
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V1: Standard CRC-16 (MSB first)", crc_v1, data, expected)
+
+# Variation 2: CRC-16 with low byte for lookup
+def crc_v2(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        crc = ((crc >> 8) & 0xFF) ^ CRC_TABLE[(crc & 0xFF) ^ byte_val]
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V2: CRC-16 LSB lookup", crc_v2, data, expected)
+
+# Variation 3: Using crc as-is with XOR
+def crc_v3(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        idx = ((crc >> 8) ^ byte_val) & 0xFF
+        crc = ((crc << 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V3: XOR with shift left", crc_v3, data, expected)
+
+# Variation 4: LSB first, different order
+def crc_v4(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        idx = (crc ^ byte_val) & 0xFF
+        crc = ((crc >> 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V4: LSB XOR lookup", crc_v4, data, expected)
+
+# Variation 5: With init value
+def crc_v5(data: bytes) -> bytes:
+    crc = 0xFFFF
+    for byte_val in data:
+        crc = ((crc << 8) & 0xFFFF) ^ CRC_TABLE[((crc >> 8) ^ byte_val) & 0xFF]
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V5: With 0xFFFF init (MSB)", crc_v5, data, expected)
+
+# Variation 6: Reversed output bytes
+def crc_v6(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        crc = ((crc << 8) & 0xFFFF) ^ CRC_TABLE[(crc >> 8) ^ byte_val]
+    return bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+test_algorithm("V6: MSB first, reversed output", crc_v6, data, expected)
+
+# Variation 7: Different init and reversed
+def crc_v7(data: bytes) -> bytes:
+    crc = 0xFFFF
+    for byte_val in data:
+        idx = ((crc >> 8) ^ byte_val) & 0xFF
+        crc = ((crc << 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+test_algorithm("V7: 0xFFFF init, reversed output", crc_v7, data, expected)
+
+# Variation 8: Try the lookup with low byte and reverse output
+def crc_v8(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte_val in data:
+        idx = (crc ^ byte_val) & 0xFF
+        crc = ((crc >> 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+test_algorithm("V8: LSB lookup, reversed output", crc_v8, data, expected)
+
+# Variation 9: With 0xFFFF init
+def crc_v9(data: bytes) -> bytes:
+    crc = 0xFFFF
+    for byte_val in data:
+        idx = (crc ^ byte_val) & 0xFF
+        crc = ((crc >> 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([(crc >> 8) & 0xFF, crc & 0xFF])
+
+test_algorithm("V9: 0xFFFF init, LSB lookup", crc_v9, data, expected)
+
+# Variation 10: With 0xFFFF init, reversed
+def crc_v10(data: bytes) -> bytes:
+    crc = 0xFFFF
+    for byte_val in data:
+        idx = (crc ^ byte_val) & 0xFF
+        crc = ((crc >> 8) ^ CRC_TABLE[idx]) & 0xFFFF
+    return bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+test_algorithm("V10: 0xFFFF init, LSB, reversed", crc_v10, data, expected)
+
+print("=" * 80)

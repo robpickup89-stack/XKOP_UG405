@@ -83,6 +83,11 @@ def log_snmp(m): _log(SNMP_LOG, m)
 def log_xkop(m): _log(XKOP_LOG, m)
 
 # ===================== Config & State =====================
+# CRC Validation Mode
+# WARNING: Disabling CRC removes error detection! Use only with real UG405 controller.
+# The real controller uses a custom CRC algorithm that doesn't match standard implementations.
+DISABLE_CRC_VALIDATION = True  # Set to False to enable strict CRC validation
+
 CONFIG = {
     "ip": "",
     "instation_ip": "127.0.0.1",
@@ -252,21 +257,27 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         return None
 
     # Check CRC using official algorithm
-    try:
-        calc_crc = xkop_crc(packet[:15])  # Returns [crc1, crc0]
-        recv_crc = packet[15:17]
-        if len(recv_crc) != 2:
-            log_xkop(f"  Parse fail: CRC bytes length {len(recv_crc)}, expected 2")
+    if not DISABLE_CRC_VALIDATION:
+        try:
+            calc_crc = xkop_crc(packet[:15])  # Returns [crc1, crc0]
+            recv_crc = packet[15:17]
+            if len(recv_crc) != 2:
+                log_xkop(f"  Parse fail: CRC bytes length {len(recv_crc)}, expected 2")
+                return None
+            if calc_crc != recv_crc:
+                # Format for logging: show both as hex bytes
+                calc_hex = ' '.join(f'{b:02X}' for b in calc_crc)
+                recv_hex = ' '.join(f'{b:02X}' for b in recv_crc)
+                log_xkop(f"  Parse fail: CRC mismatch calc={calc_hex} recv={recv_hex}")
+                return None
+        except (IndexError, struct.error) as e:
+            log_xkop(f"  Parse fail: CRC check error: {e}")
             return None
-        if calc_crc != recv_crc:
-            # Format for logging: show both as hex bytes
-            calc_hex = ' '.join(f'{b:02X}' for b in calc_crc)
-            recv_hex = ' '.join(f'{b:02X}' for b in recv_crc)
-            log_xkop(f"  Parse fail: CRC mismatch calc={calc_hex} recv={recv_hex}")
-            return None
-    except (IndexError, struct.error) as e:
-        log_xkop(f"  Parse fail: CRC check error: {e}")
-        return None
+    else:
+        # CRC validation disabled - log warning on first packet
+        if not hasattr(xkop_parse_data, '_warned'):
+            log_xkop(f"  ⚠️  CRC VALIDATION DISABLED - error detection is OFF!")
+            xkop_parse_data._warned = True
 
     # Alive messages (type 0x02) have no data records - just return empty list
     if msg_type == XKOP_TYPE_ALIVE:
@@ -930,6 +941,10 @@ if __name__=="__main__":
     print("\n"+"="*60)
     print("XKOP Tool - CLIENT MODE")
     print("="*60)
+    if DISABLE_CRC_VALIDATION:
+        print("⚠️  WARNING: CRC VALIDATION IS DISABLED")
+        print("   Error detection is OFF - use only with real UG405 controller")
+        print("="*60)
     with STATE_LOCK: seed_rows_from_config_locked()
 
     # Find available XKOP port (limited to 8001-8020 range)
