@@ -177,6 +177,9 @@ class XKOPController:
         self.client_address = None
         self.running = False
         self.send_lock = threading.Lock()
+        # Internal state for index values (simulates controller memory)
+        self.index_values = {}  # Dict[int, int] mapping index (0-255) to value (0-65535)
+        self.state_lock = threading.Lock()
 
     def start(self):
         """Start the TCP server"""
@@ -239,6 +242,29 @@ class XKOPController:
                         print(f"\nReceived from client {self.client_address[0]}:{self.client_address[1]}:")
                         print_packet_info(data, "  RX Packet")
 
+                        # Parse the packet to extract requested indices (4 index read mode)
+                        parsed = parse_xkop_packet(data)
+                        if parsed and "records" in parsed and parsed["valid_crc"]:
+                            # Extract the indices from the received packet
+                            requested_indices = [rec["index"] for rec in parsed["records"]]
+
+                            if requested_indices:
+                                print(f"  Read request for indices: {requested_indices}")
+
+                                # Build response with current values for requested indices
+                                response_records = []
+                                with self.state_lock:
+                                    for idx in requested_indices[:4]:  # Max 4 indices
+                                        value = self.index_values.get(idx, 0)  # Default to 0 if not set
+                                        response_records.append((idx, value))
+
+                                # Send response packet
+                                if response_records:
+                                    response_packet = xkop_build_data(response_records)
+                                    self.client_socket.sendall(response_packet)
+                                    print(f"\n  Sent response to client:")
+                                    print_packet_info(response_packet, "    Response Packet")
+
                 except socket.timeout:
                     continue
                 except Exception as e:
@@ -283,6 +309,34 @@ class XKOPController:
     # Legacy alias for backward compatibility
     send_status = send_data
 
+    def set_index_value(self, index: int, value: int):
+        """Set the value for a specific index"""
+        if 0 <= index <= 255 and 0 <= value <= 65535:
+            with self.state_lock:
+                self.index_values[index] = value
+            print(f"✓ Set index {index} = {value} (0x{value:04X})")
+            return True
+        else:
+            print(f"✗ Invalid index ({index}) or value ({value})")
+            return False
+
+    def get_index_value(self, index: int) -> int:
+        """Get the value for a specific index"""
+        with self.state_lock:
+            return self.index_values.get(index, 0)
+
+    def list_index_values(self):
+        """List all set index values"""
+        with self.state_lock:
+            if not self.index_values:
+                print("No index values set")
+                return
+
+            print(f"\nCurrent Index Values ({len(self.index_values)}):")
+            for idx in sorted(self.index_values.keys()):
+                val = self.index_values[idx]
+                print(f"  Index {idx:3d}: {val:5d} (0x{val:04X})")
+
     def stop(self):
         """Stop the server"""
         self.running = False
@@ -322,13 +376,19 @@ def test_crc():
 def interactive_mode(controller: XKOPController):
     """Interactive mode for sending custom packets"""
     print("\n" + "="*60)
-    print("INTERACTIVE MODE")
+    print("INTERACTIVE MODE (4 Index Read Mode Enabled)")
     print("="*60)
     print("Commands:")
     print("  s <idx1> <val1> [idx2 val2] ... - Send data message (max 4 records)")
     print("  p <scenario>                    - Send predefined scenario")
+    print("  i <idx> <val>                   - Set index value (for read responses)")
+    print("  l                               - List all index values")
+    print("  g <idx>                         - Get value for specific index")
     print("  t                               - Run CRC test")
     print("  q                               - Quit")
+    print("="*60)
+    print("NOTE: When a client sends a DATA packet with indices,")
+    print("      the controller will automatically respond with current values")
     print("="*60 + "\n")
 
     # Predefined scenarios
@@ -354,6 +414,35 @@ def interactive_mode(controller: XKOPController):
 
             elif command == 't':
                 test_crc()
+
+            elif command == 'i':
+                if len(parts) < 3:
+                    print("Usage: i <index> <value>")
+                    print("Example: i 0 100")
+                    continue
+
+                try:
+                    idx = int(parts[1])
+                    val = int(parts[2])
+                    controller.set_index_value(idx, val)
+                except ValueError:
+                    print(f"Invalid number: {parts[1]} or {parts[2]}")
+
+            elif command == 'l':
+                controller.list_index_values()
+
+            elif command == 'g':
+                if len(parts) < 2:
+                    print("Usage: g <index>")
+                    print("Example: g 0")
+                    continue
+
+                try:
+                    idx = int(parts[1])
+                    val = controller.get_index_value(idx)
+                    print(f"Index {idx}: {val} (0x{val:04X})")
+                except ValueError:
+                    print(f"Invalid index: {parts[1]}")
 
             elif command == 'p':
                 if len(parts) < 2:
