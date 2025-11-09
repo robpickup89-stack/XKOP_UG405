@@ -242,14 +242,37 @@ class XKOPController:
                         print(f"\nReceived from client {self.client_address[0]}:{self.client_address[1]}:")
                         print_packet_info(data, "  RX Packet")
 
-                        # Parse the packet to extract requested indices (4 index read mode)
+                        # Parse the packet
                         parsed = parse_xkop_packet(data)
                         if parsed and "records" in parsed and parsed["valid_crc"]:
-                            # Extract the indices from the received packet
-                            requested_indices = [rec["index"] for rec in parsed["records"]]
+                            records = parsed["records"]
 
-                            if requested_indices:
-                                print(f"  Read request for indices: {requested_indices}")
+                            # Determine if this is a READ or WRITE request
+                            # WRITE: If any value is non-zero, treat as write operation
+                            # READ: If all values are zero, treat as read request
+                            is_write = any(rec["value"] != 0 for rec in records)
+
+                            if is_write:
+                                # WRITE MODE: Store the values sent by client
+                                print(f"  WRITE request:")
+                                with self.state_lock:
+                                    for rec in records:
+                                        idx = rec["index"]
+                                        val = rec["value"]
+                                        self.index_values[idx] = val
+                                        print(f"    Index {idx} ← {val} (0x{val:04X})")
+
+                                # Send acknowledgment with same values
+                                response_records = [(rec["index"], rec["value"]) for rec in records]
+                                response_packet = xkop_build_data(response_records)
+                                self.client_socket.sendall(response_packet)
+                                print(f"\n  Sent ACK to client:")
+                                print_packet_info(response_packet, "    ACK Packet")
+
+                            else:
+                                # READ MODE: Client sends indices with value 0, wants current values
+                                requested_indices = [rec["index"] for rec in records]
+                                print(f"  READ request for indices: {requested_indices}")
 
                                 # Build response with current values for requested indices
                                 response_records = []
@@ -376,7 +399,7 @@ def test_crc():
 def interactive_mode(controller: XKOPController):
     """Interactive mode for sending custom packets"""
     print("\n" + "="*60)
-    print("INTERACTIVE MODE (4 Index Read Mode Enabled)")
+    print("INTERACTIVE MODE (Read/Write Enabled)")
     print("="*60)
     print("Commands:")
     print("  s <idx1> <val1> [idx2 val2] ... - Send data message (max 4 records)")
@@ -387,8 +410,11 @@ def interactive_mode(controller: XKOPController):
     print("  t                               - Run CRC test")
     print("  q                               - Quit")
     print("="*60)
-    print("NOTE: When a client sends a DATA packet with indices,")
-    print("      the controller will automatically respond with current values")
+    print("READ/WRITE PROTOCOL:")
+    print("  WRITE: Client sends indices with NON-ZERO values")
+    print("         → Controller stores values and sends ACK")
+    print("  READ:  Client sends indices with ZERO values")
+    print("         → Controller responds with current values")
     print("="*60 + "\n")
 
     # Predefined scenarios
