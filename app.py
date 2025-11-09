@@ -828,6 +828,7 @@ def get_config(): return jsonify(CONFIG)
 def get_state():
     global TEST_MODE, TEST_MODE_EXPIRY
     if TEST_MODE and TEST_MODE_EXPIRY and datetime.datetime.utcnow()>TEST_MODE_EXPIRY:
+        log_app(f"⏰ Test mode AUTO-EXPIRED at {datetime.datetime.utcnow().isoformat()}")
         TEST_MODE=False; TEST_MODE_EXPIRY=None
     with STATE_LOCK:
         return jsonify({"rows":STATE["rows"],"last_update":STATE["last_update"],"test_mode":TEST_MODE,
@@ -840,11 +841,32 @@ def get_test_mode(): return jsonify({"enabled":TEST_MODE})
 def set_test_mode():
     global TEST_MODE, TEST_MODE_EXPIRY
     data=request.get_json(force=True) or{}
-    TEST_MODE=bool(data.get("enabled",False))
+    requested_state = bool(data.get("enabled",False))
+
+    # Check if test mode is already in the requested state
+    if TEST_MODE == requested_state:
+        if requested_state:
+            # Already enabled - warn but don't reset timer
+            remaining_time = "unknown"
+            if TEST_MODE_EXPIRY:
+                remaining_seconds = (TEST_MODE_EXPIRY - datetime.datetime.utcnow()).total_seconds()
+                remaining_minutes = int(remaining_seconds / 60)
+                remaining_time = f"{remaining_minutes} minutes"
+            log_app(f"⚠️  Test mode is already ENABLED (expires in {remaining_time}). Not resetting timer.")
+            return jsonify({"ok":True,"enabled":TEST_MODE,"warning":"Test mode already enabled","expires":TEST_MODE_EXPIRY.isoformat() if TEST_MODE_EXPIRY else None})
+        else:
+            # Already disabled - just return status
+            log_app(f"Test mode is already DISABLED. No change needed.")
+            return jsonify({"ok":True,"enabled":TEST_MODE,"info":"Test mode already disabled"})
+
+    # State is changing - proceed with the change
+    TEST_MODE = requested_state
     if TEST_MODE:
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
+        log_app(f"✓ Test mode ENABLED. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
         TEST_MODE_EXPIRY=None
+        log_app(f"✓ Test mode DISABLED")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
