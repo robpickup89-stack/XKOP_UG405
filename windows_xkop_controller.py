@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 XKOP Controller Simulator for Windows
-Simulates a UG405 controller sending STATUS messages to XKOP client
+Simulates a UG405 controller sending DATA messages (Type 0x00) to XKOP client
 """
 
 import socket
@@ -15,7 +15,8 @@ from typing import List, Tuple
 # ===================== XKOP Protocol =====================
 XKOP_HDR1 = 0xCA
 XKOP_HDR2 = 0x35
-XKOP_TYPE_STATUS = 0x02  # Type for status messages FROM controller
+XKOP_TYPE_DATA = 0x00    # Type 0x00: Data message (contains variables)
+XKOP_TYPE_STATUS = 0x02  # Type 0x02: Status/Alive message (deprecated, use DATA)
 
 # CRC16 lookup table (matching the C specification)
 CRC_TABLE = [
@@ -83,9 +84,9 @@ def xkop_crc16_check(data: bytes) -> bool:
 
     return (crc1 == 0) and (crc0 == 0)
 
-def xkop_build_status(records: List[Tuple[int, int]]) -> bytes:
+def xkop_build_data(records: List[Tuple[int, int]]) -> bytes:
     """
-    Build an XKOP STATUS message (Type 0x02)
+    Build an XKOP DATA message (Type 0x00)
 
     Args:
         records: List of (index, value) tuples, max 4 records
@@ -109,8 +110,8 @@ def xkop_build_status(records: List[Tuple[int, int]]) -> bytes:
             # Empty slot: 0xFF 0x00 0x00
             payload.extend(b"\xFF\x00\x00")
 
-    # Build header (3 bytes)
-    header = bytes([XKOP_HDR1, XKOP_HDR2, XKOP_TYPE_STATUS])
+    # Build header (3 bytes) - using DATA type 0x00
+    header = bytes([XKOP_HDR1, XKOP_HDR2, XKOP_TYPE_DATA])
 
     # Calculate CRC on header + payload (15 bytes)
     crc_bytes = xkop_crc16_write(header + payload)
@@ -118,6 +119,9 @@ def xkop_build_status(records: List[Tuple[int, int]]) -> bytes:
     # Return full packet (17 bytes)
     packet = header + payload + crc_bytes
     return packet
+
+# Legacy alias for backward compatibility
+xkop_build_status = xkop_build_data
 
 def parse_xkop_packet(packet: bytes) -> dict:
     """Parse an XKOP packet and return its components"""
@@ -156,7 +160,8 @@ def print_packet_info(packet: bytes, label: str = "Packet"):
         return
 
     print(f"  Header: {info['header1']} {info['header2']}")
-    print(f"  Type: {info['type']} ({'STATUS' if packet[2] == XKOP_TYPE_STATUS else 'DATA'})")
+    type_name = 'DATA' if packet[2] == XKOP_TYPE_DATA else ('STATUS' if packet[2] == XKOP_TYPE_STATUS else 'UNKNOWN')
+    print(f"  Type: {info['type']} ({type_name})")
     print(f"  CRC: {info['crc']} ({'✓ Valid' if info['valid_crc'] else '✗ Invalid'})")
     print(f"  Records ({len(info['records'])}):")
     for rec in info['records']:
@@ -251,15 +256,15 @@ class XKOPController:
             self.client_socket = None
             self.client_address = None
 
-    def send_status(self, records: List[Tuple[int, int]]):
-        """Send STATUS message to connected client"""
+    def send_data(self, records: List[Tuple[int, int]]):
+        """Send DATA message to connected client"""
         with self.send_lock:
             if not self.client_socket:
                 print("✗ No client connected, cannot send")
                 return False
 
             try:
-                packet = xkop_build_status(records)
+                packet = xkop_build_data(records)
                 self.client_socket.sendall(packet)
 
                 print(f"\nSent to client {self.client_address[0]}:{self.client_address[1]}:")
@@ -274,6 +279,9 @@ class XKOPController:
                     pass
                 self.client_socket = None
                 return False
+
+    # Legacy alias for backward compatibility
+    send_status = send_data
 
     def stop(self):
         """Stop the server"""
@@ -304,7 +312,7 @@ def test_crc():
         (4, 0),   # Index 4, Value 0
     ]
 
-    packet = xkop_build_status(test_records)
+    packet = xkop_build_data(test_records)
     print_packet_info(packet, "Test Packet")
 
     # Verify CRC
@@ -317,7 +325,7 @@ def interactive_mode(controller: XKOPController):
     print("INTERACTIVE MODE")
     print("="*60)
     print("Commands:")
-    print("  s <idx1> <val1> [idx2 val2] ... - Send status (max 4 records)")
+    print("  s <idx1> <val1> [idx2 val2] ... - Send data message (max 4 records)")
     print("  p <scenario>                    - Send predefined scenario")
     print("  t                               - Run CRC test")
     print("  q                               - Quit")
@@ -325,7 +333,7 @@ def interactive_mode(controller: XKOPController):
 
     # Predefined scenarios
     scenarios = {
-        '1': ([0, 1), (1, 0), (3, 1), (4, 0)], "Your example packet"),
+        '1': ([(0, 1), (1, 0), (3, 1), (4, 0)], "Your example packet"),
         '2': ([(0, 100), (1, 200), (2, 300), (3, 400)], "All indices 0-3, values 100-400"),
         '3': ([(0, 1)], "Single record: Index 0, Value 1"),
         '4': ([(0, 0), (1, 0), (2, 0), (3, 0)], "All zeros"),
@@ -358,7 +366,7 @@ def interactive_mode(controller: XKOPController):
                 if scenario_key in scenarios:
                     records, desc = scenarios[scenario_key]
                     print(f"Sending scenario {scenario_key}: {desc}")
-                    controller.send_status(records)
+                    controller.send_data(records)
                 else:
                     print(f"Unknown scenario: {scenario_key}")
 
@@ -386,7 +394,7 @@ def interactive_mode(controller: XKOPController):
                     if len(records) > 4:
                         print(f"Warning: Only first 4 records will be sent (you provided {len(records)})")
                         records = records[:4]
-                    controller.send_status(records)
+                    controller.send_data(records)
 
             else:
                 print(f"Unknown command: {command}")
@@ -398,8 +406,8 @@ def interactive_mode(controller: XKOPController):
             print(f"Error: {e}")
 
 def auto_send_mode(controller: XKOPController, interval=2.0):
-    """Automatically send periodic status updates"""
-    print(f"\nAuto-send mode: sending status every {interval} seconds")
+    """Automatically send periodic data messages"""
+    print(f"\nAuto-send mode: sending data messages every {interval} seconds")
     print("Press Ctrl+C to stop\n")
 
     # Cycling through different values
@@ -414,7 +422,7 @@ def auto_send_mode(controller: XKOPController, interval=2.0):
                 (3, (cycle * 10) % 65536),  # Index 3: larger counter
             ]
 
-            controller.send_status(records)
+            controller.send_data(records)
             cycle += 1
             time.sleep(interval)
 
