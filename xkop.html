@@ -754,8 +754,11 @@ function renderTest(){
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        // Update state and re-render test mode only
-        await refreshState(false);
+        // Update local state directly to avoid re-fetching and button flicker
+        r.in_value = val;
+        STATE.last_update = Date.now() / 1000;
+        // Re-render just the test table using local state
+        renderTest();
         showNotification('success', `✓ Sent to controller: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test input failed');
@@ -776,8 +779,11 @@ function renderTest(){
         body:JSON.stringify({key,value:val})
       });
       if(res.ok){
-        // Update state and re-render test mode only
-        await refreshState(false);
+        // Update local state directly to avoid re-fetching and button flicker
+        r.out_value = val;
+        STATE.last_update = Date.now() / 1000;
+        // Re-render just the test table using local state
+        renderTest();
         showNotification('success', `✓ Published to SNMP: ${key}=${val}`);
       } else {
         showNotification('error', '✗ Test output failed');
@@ -1199,12 +1205,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   $("#btn-save").onclick=()=>saveConfig();
   $("#btn-export").onclick=exportConfig;
 
-  // Auto-save on field changes
-  $("#ip").addEventListener('blur', ()=>saveConfig(true));
-  $("#instation_ip").addEventListener('blur', ()=>saveConfig(true));
-  $("#xkop").addEventListener('change', ()=>saveConfig(true));
-  $("#snmp_port").addEventListener('change', ()=>saveConfig(true));
-
   $("#file-load").addEventListener('change',e=>{
     const f=e.target.files[0];
     if(f){
@@ -1238,23 +1238,37 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   
   // Test mode actions
   $("#btn-test-on").onclick=async()=>{
-    await fetch('/test/mode',{
+    const res = await fetch('/test/mode',{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({enabled:true})
     });
-    await refreshState(false); // Force re-render test mode to show initial state
-    showNotification('warning', '⚠️ Test Mode ENABLED');
+    if(res.ok){
+      const data = await res.json();
+      // Update local state directly to avoid re-fetching
+      STATE.test_mode = data.enabled;
+      STATE.expires = data.expires;
+      setTestUi(STATE.test_mode, STATE.expires);
+      renderTest();
+      showNotification('warning', '⚠️ Test Mode ENABLED');
+    }
   };
 
   $("#btn-test-off").onclick=async()=>{
-    await fetch('/test/mode',{
+    const res = await fetch('/test/mode',{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({enabled:false})
     });
-    await refreshState(false); // Force re-render test mode to show reset state
-    showNotification('success', '✓ Test Mode DISABLED');
+    if(res.ok){
+      const data = await res.json();
+      // Update local state directly to avoid re-fetching
+      STATE.test_mode = data.enabled;
+      STATE.expires = null;
+      setTestUi(STATE.test_mode, STATE.expires);
+      renderTest();
+      showNotification('success', '✓ Test Mode DISABLED');
+    }
   };
   
   // Live mirror actions
@@ -1262,10 +1276,16 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   $("#btn-toggle-auto").onclick=toggleAutoRefresh;
   
   // Initial load
-  await refreshConfig(); 
-  await refreshState(); 
+  await refreshConfig();
+  await refreshState();
   await refreshLogs();
-  
+
+  // Setup auto-save AFTER initial config load to prevent triggering on page load
+  $("#ip").addEventListener('blur', ()=>saveConfig(true));
+  $("#instation_ip").addEventListener('blur', ()=>saveConfig(true));
+  $("#xkop").addEventListener('change', ()=>saveConfig(true));
+  $("#snmp_port").addEventListener('change', ()=>saveConfig(true));
+
   // Auto-refresh logs
   setInterval(refreshLogs,3000);
 
