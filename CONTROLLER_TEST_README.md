@@ -5,8 +5,10 @@ This script simulates a UG405 controller that sends DATA messages to your XKOP c
 ## Features
 
 - **Send DATA messages**: Push data updates to connected clients
-- **4 Index Read Mode**: Automatically respond to client read requests for up to 4 indices
+- **Bidirectional communication**: Accept values from client (SNMP SET/test mode) and store them
+- **4 Index Read/Write Mode**: Process up to 4 index-value pairs per packet
 - **Internal state storage**: Maintain values for all 256 possible indices (0-255)
+- **Automatic response**: Confirm stored values by echoing them back to client
 - **Interactive control**: Manually set index values and send custom packets
 - **Auto-send mode**: Continuously send cycling data for testing
 
@@ -75,9 +77,9 @@ s 0 100 1 200           # Two records
 s 0 1 1 0 3 1 4 0      # Four records (your example)
 ```
 
-### 4 Index Read Mode Commands
+### 4 Index Read/Write Mode Commands
 
-**Set Index Value** (for read responses):
+**Set Index Value** (manually set controller values):
 ```
 i <index> <value>
 ```
@@ -86,6 +88,7 @@ Example:
 i 0 100      # Set index 0 to value 100
 i 5 1234     # Set index 5 to value 1234
 ```
+Note: Values can also be set by the client via SNMP SET or test mode.
 
 **List All Index Values**:
 ```
@@ -104,21 +107,43 @@ g 0          # Get value for index 0
 
 ### How 4 Index Read Mode Works
 
-When a client sends a DATA packet to the controller with specific indices:
-1. The controller receives the packet and extracts the requested indices
-2. The controller looks up the current values for those indices (defaults to 0 if not set)
-3. The controller automatically sends a response packet with the current values
+The controller now supports bidirectional communication:
 
-Example workflow:
+**When a client sends a DATA packet:**
+1. The controller receives the packet and extracts the indices AND values
+2. The controller stores these values in its internal memory
+3. The controller responds with the stored values as confirmation
+
+This enables true read/write communication between the client and controller.
+
+**Example workflow - Client writes values:**
+```
+# Client (via SNMP SET or test mode) sends:
+Index 0 = 100
+Index 1 = 200
+Index 2 = 300
+Index 3 = 400
+
+# Controller receives and stores:
+✓ Stored: Index 0 = 100
+✓ Stored: Index 1 = 200
+✓ Stored: Index 2 = 300
+✓ Stored: Index 3 = 400
+
+# Controller responds with confirmation:
+Sent: Index 0 = 100, Index 1 = 200, Index 2 = 300, Index 3 = 400
+```
+
+**Example workflow - Manual setting:**
 ```
 # On controller:
 Command> i 0 100        # Set index 0 = 100
 Command> i 1 200        # Set index 1 = 200
-Command> i 2 300        # Set index 2 = 300
-Command> i 3 400        # Set index 3 = 400
 
-# When client sends packet requesting indices [0, 1, 2, 3]:
-# Controller automatically responds with values [100, 200, 300, 400]
+Command> l              # List all values
+Current Index Values (2):
+  Index   0:   100 (0x0064)
+  Index   1:   200 (0x00C8)
 ```
 
 ### Send Predefined Scenarios

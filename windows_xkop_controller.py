@@ -242,23 +242,29 @@ class XKOPController:
                         print(f"\nReceived from client {self.client_address[0]}:{self.client_address[1]}:")
                         print_packet_info(data, "  RX Packet")
 
-                        # Parse the packet to extract requested indices (4 index read mode)
+                        # Parse the packet to extract indices and values (4 index read mode)
                         parsed = parse_xkop_packet(data)
                         if parsed and "records" in parsed and parsed["valid_crc"]:
-                            # Extract the indices from the received packet
-                            requested_indices = [rec["index"] for rec in parsed["records"]]
+                            records = parsed["records"]
 
-                            if requested_indices:
-                                print(f"  Read request for indices: {requested_indices}")
+                            if records:
+                                # Store the received values in controller's memory
+                                with self.state_lock:
+                                    for rec in records[:4]:  # Max 4 records
+                                        idx = rec["index"]
+                                        val = rec["value"]
+                                        self.index_values[idx] = val
+                                        print(f"  Stored: Index {idx} = {val} (0x{val:04X})")
 
-                                # Build response with current values for requested indices
+                                # Build response with the newly stored values
                                 response_records = []
                                 with self.state_lock:
-                                    for idx in requested_indices[:4]:  # Max 4 indices
-                                        value = self.index_values.get(idx, 0)  # Default to 0 if not set
+                                    for rec in records[:4]:
+                                        idx = rec["index"]
+                                        value = self.index_values[idx]
                                         response_records.append((idx, value))
 
-                                # Send response packet
+                                # Send response packet confirming the stored values
                                 if response_records:
                                     response_packet = xkop_build_data(response_records)
                                     self.client_socket.sendall(response_packet)
@@ -376,19 +382,20 @@ def test_crc():
 def interactive_mode(controller: XKOPController):
     """Interactive mode for sending custom packets"""
     print("\n" + "="*60)
-    print("INTERACTIVE MODE (4 Index Read Mode Enabled)")
+    print("INTERACTIVE MODE (4 Index Read/Write Mode Enabled)")
     print("="*60)
     print("Commands:")
     print("  s <idx1> <val1> [idx2 val2] ... - Send data message (max 4 records)")
     print("  p <scenario>                    - Send predefined scenario")
-    print("  i <idx> <val>                   - Set index value (for read responses)")
+    print("  i <idx> <val>                   - Set index value manually")
     print("  l                               - List all index values")
     print("  g <idx>                         - Get value for specific index")
     print("  t                               - Run CRC test")
     print("  q                               - Quit")
     print("="*60)
-    print("NOTE: When a client sends a DATA packet with indices,")
-    print("      the controller will automatically respond with current values")
+    print("NOTE: When a client sends a DATA packet, the controller will:")
+    print("      1. Store the received index values")
+    print("      2. Respond with the stored values as confirmation")
     print("="*60 + "\n")
 
     # Predefined scenarios
