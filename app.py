@@ -566,7 +566,7 @@ def _as_int(v,d):
 
 @app.post("/config")
 def save_config():
-    global CONFIG, XKOP_LISTEN_ADDR, XKOP_TX_ADDR, xkop_listener_sock
+    global CONFIG, XKOP_LISTEN_ADDR, XKOP_TX_ADDR, xkop_listener_sock, xkop_tcp_listener_sock
     cfg=request.get_json(force=True) or {}
     xkop_n=_as_int(cfg.get("xkop") or 1,1)
     preferred_xkop_prt=8000 + xkop_n
@@ -593,6 +593,9 @@ def save_config():
     with STATE_LOCK: seed_rows_from_config_locked()
     try:
         if xkop_listener_sock: xkop_listener_sock.close()
+    except: pass
+    try:
+        if xkop_tcp_listener_sock: xkop_tcp_listener_sock.close()
     except: pass
     log_app(f"CFG: controller {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
     return jsonify({"ok":True,"listen":list(XKOP_LISTEN_ADDR),"tx":list(XKOP_TX_ADDR)})
