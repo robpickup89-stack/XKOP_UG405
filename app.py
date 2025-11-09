@@ -495,17 +495,13 @@ def snmp_get():
                 if idx < 0 or idx > 255:
                     continue
                 bit = max(0, idx - 1)
-                # Normalize output value to 0 or 1
-                val = r.get("out_value")
-                bit_val = 1 if val else 0
-                if bit_val == 1:
+                val = r.get("out_value") or 0
+                if val:
                     mask |= (1 << bit)
             except (ValueError, IndexError, AttributeError):
                 continue
-        # Return "0" or "1" instead of full bitmask value
-        result = "1" if mask > 0 else "0"
-        log_snmp(f"GET {oid} = {result} (mask={mask})")
-        return jsonify({"oid": oid, "value": result, "type": "string"})
+        log_snmp(f"GET {oid} = {mask}")
+        return jsonify({"oid": oid, "value": str(mask), "type": "string"})
     else:
         if rows:
             val = rows[0].get("out_value") or 0
