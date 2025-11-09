@@ -502,8 +502,10 @@ def snmp_get():
                     mask |= (1 << bit)
             except (ValueError, IndexError, AttributeError):
                 continue
-        log_snmp(f"GET {oid} = {mask}")
-        return jsonify({"oid": oid, "value": str(mask), "type": "string"})
+        # Return "0" or "1" instead of full bitmask value
+        result = "1" if mask > 0 else "0"
+        log_snmp(f"GET {oid} = {result} (mask={mask})")
+        return jsonify({"oid": oid, "value": result, "type": "string"})
     else:
         if rows:
             val = rows[0].get("out_value") or 0
