@@ -174,16 +174,23 @@ CRC_TABLE = [
 
 def xkop_crc(data: bytes) -> bytes:
     """
-    Calculate CRC16 for XKOP packet using official algorithm.
-    Returns 2 bytes: [crc1, crc0] matching the C specification.
+    Calculate CRC16 for XKOP packet.
+    Returns 2 bytes: [crc1, crc0]
 
-    Based on the official C implementation:
-        temp = (crc1 ^ byte);
-        crc1 = (crc0 ^ crc_table[temp]);
-        crc0 = (crc_table[temp] >> 8);
+    CRITICAL: CRC is initialized with the header bytes (0xCA, 0x35).
+    This means the CRC calculation includes the header in the algorithm.
+
+    Algorithm:
+        crc1 = 0xCA (XKOP_HDR1)
+        crc0 = 0x35 (XKOP_HDR2)
+        for each byte in packet (including header):
+            temp = (crc1 ^ byte)
+            crc1 = (crc0 ^ crc_table[temp])
+            crc0 = (crc_table[temp] >> 8)
     """
-    crc1 = 0
-    crc0 = 0
+    # Initialize CRC with header bytes
+    crc1 = XKOP_HDR1  # 0xCA
+    crc0 = XKOP_HDR2  # 0x35
 
     for byte_val in data:
         temp = (crc1 ^ byte_val) & 0xFF
@@ -197,11 +204,11 @@ def xkop_crc_check(packet: bytes) -> bool:
     Verify CRC16 for XKOP packet (full 17 bytes including CRC).
     Returns True if CRC is valid.
 
-    Based on the official C implementation:
-        After processing all bytes including CRC, both crc1 and crc0 should be 0.
+    With header-initialized CRC: processing all 17 bytes (including CRC)
+    should result in both crc1 and crc0 being 0.
     """
-    crc1 = 0
-    crc0 = 0
+    crc1 = XKOP_HDR1  # 0xCA
+    crc0 = XKOP_HDR2  # 0x35
 
     for byte_val in packet:
         temp = (crc1 ^ byte_val) & 0xFF
@@ -251,7 +258,7 @@ def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
         log_xkop(f"  Parse fail: unknown TYPE 0x{msg_type:02X}, expected 0x{XKOP_TYPE_DATA:02X} or 0x{XKOP_TYPE_ALIVE:02X}")
         return None
 
-    # Check CRC using official algorithm
+    # Check CRC (initialized with header bytes)
     try:
         calc_crc = xkop_crc(packet[:15])  # Returns [crc1, crc0]
         recv_crc = packet[15:17]

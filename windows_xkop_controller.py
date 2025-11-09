@@ -57,10 +57,12 @@ CRC_TABLE = [
 def xkop_crc16_write(data: bytes) -> bytes:
     """
     Calculate CRC16 for XKOP packet
-    Returns 2 bytes: [crc1, crc0] matching the C specification
+    Returns 2 bytes: [crc1, crc0]
+
+    CRITICAL: CRC is initialized with header bytes (0xCA, 0x35)
     """
-    crc1 = 0
-    crc0 = 0
+    crc1 = XKOP_HDR1  # 0xCA
+    crc0 = XKOP_HDR2  # 0x35
 
     for byte_val in data:
         temp = (crc1 ^ byte_val) & 0xFF
@@ -73,9 +75,11 @@ def xkop_crc16_check(data: bytes) -> bool:
     """
     Verify CRC16 for XKOP packet (full 17 bytes including CRC)
     Returns True if CRC is valid
+
+    With header-initialized CRC, processing all 17 bytes should yield zeros
     """
-    crc1 = 0
-    crc0 = 0
+    crc1 = XKOP_HDR1  # 0xCA
+    crc0 = XKOP_HDR2  # 0x35
 
     for byte_val in data:
         temp = (crc1 ^ byte_val) & 0xFF
