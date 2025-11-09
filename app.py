@@ -173,10 +173,28 @@ def xkop_build_data(records: List[Tuple[int,int]]) -> bytes:
     return header + data + struct.pack(">H", crc)
 
 def xkop_parse_data(packet: bytes) -> Optional[List[Tuple[int,int]]]:
-    if len(packet) != 17 or packet[0]!=XKOP_HDR1 or packet[1]!=XKOP_HDR2 or packet[2]!=XKOP_TYPE_DATA:
+    # Check packet length and headers
+    if len(packet) != 17:
+        log_xkop(f"  Parse fail: wrong length {len(packet)}, expected 17")
         return None
-    calc = xkop_crc(packet[:15]); recv = struct.unpack(">H", packet[15:17])[0]
-    if calc != recv: return None
+    if packet[0] != XKOP_HDR1:
+        log_xkop(f"  Parse fail: wrong HDR1 0x{packet[0]:02X}, expected 0x{XKOP_HDR1:02X}")
+        return None
+    if packet[1] != XKOP_HDR2:
+        log_xkop(f"  Parse fail: wrong HDR2 0x{packet[1]:02X}, expected 0x{XKOP_HDR2:02X}")
+        return None
+    if packet[2] != XKOP_TYPE_DATA:
+        log_xkop(f"  Parse fail: wrong TYPE 0x{packet[2]:02X}, expected 0x{XKOP_TYPE_DATA:02X}")
+        return None
+
+    # Check CRC
+    calc = xkop_crc(packet[:15])
+    recv = struct.unpack(">H", packet[15:17])[0]
+    if calc != recv:
+        log_xkop(f"  Parse fail: CRC mismatch calc=0x{calc:04X} recv=0x{recv:04X}")
+        return None
+
+    # Extract records
     p = packet[3:15]; recs=[]
     for i in range(0,12,3):
         idx=p[i]; val=(p[i+1]<<8) | p[i+2]
@@ -263,7 +281,8 @@ def xkop_tcp_client_handler(conn: socket.socket, addr: tuple):
             # Parse XKOP message
             recs = xkop_parse_data(data)
             if recs is None:
-                log_xkop(f"TCP invalid XKOP from {addr[0]}:{addr[1]}")
+                hex_data = ' '.join(f'{b:02X}' for b in data)
+                log_xkop(f"TCP invalid XKOP from {addr[0]}:{addr[1]}, received: {hex_data}")
                 continue
 
             log_xkop(f"TCP RX from {addr}: {recs}")
