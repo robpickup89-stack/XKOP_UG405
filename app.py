@@ -360,6 +360,12 @@ def xkop_listener():
                 if recs:
                     log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
 
+                # Block output updates during test mode
+                if TEST_MODE:
+                    if recs:
+                        log_xkop(f"  Test mode: BLOCKED {len(recs)} output updates from controller")
+                    continue
+
                 # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
                 for (idx, val) in recs:
                     # Convert XKOP index to row number (0→1, 1→2, etc.)
@@ -462,6 +468,12 @@ def xkop_tcp_listener():
                             log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
                         except Exception as e:
                             log_xkop(f"  Error logging records: {e}, recs type: {type(recs)}")
+
+                    # Block output updates during test mode
+                    if TEST_MODE:
+                        if recs:
+                            log_xkop(f"  Test mode: BLOCKED {len(recs)} output updates from controller (TCP)")
+                        continue
 
                     # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
                     for rec in recs:
