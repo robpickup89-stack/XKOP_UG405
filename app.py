@@ -14,6 +14,54 @@ from flask import Flask, jsonify, request, send_from_directory
 
 app = Flask(__name__, static_folder=None)
 
+# ===================== Port Availability Checker =====================
+def find_available_port(preferred_port: int, max_attempts: int = 10, check_both_protocols: bool = False) -> int:
+    """
+    Find an available port, starting with the preferred port.
+    If preferred port is in use, try subsequent ports.
+
+    Args:
+        preferred_port: The port to try first
+        max_attempts: How many sequential ports to check
+        check_both_protocols: If True, check both UDP and TCP availability
+    """
+    for offset in range(max_attempts):
+        port = preferred_port + offset
+        tcp_available = False
+        udp_available = False
+
+        # Check TCP port availability
+        try:
+            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_sock.bind(('0.0.0.0', port))
+            test_sock.close()
+            tcp_available = True
+        except OSError:
+            pass
+
+        # Check UDP port availability if needed
+        if check_both_protocols:
+            try:
+                test_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                test_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                test_sock.bind(('0.0.0.0', port))
+                test_sock.close()
+                udp_available = True
+            except OSError:
+                pass
+
+            # Both must be available
+            if tcp_available and udp_available:
+                return port
+        else:
+            # Only TCP needs to be available
+            if tcp_available:
+                return port
+
+    # If all attempts failed, return the preferred port (will fail with clear error)
+    return preferred_port
+
 # ===================== Logs =====================
 STATE_LOCK = threading.Lock()
 LOG_LOCK = threading.Lock()
@@ -502,7 +550,22 @@ def save_config():
     global CONFIG, XKOP_LISTEN_ADDR, XKOP_TX_ADDR, xkop_listener_sock
     cfg=request.get_json(force=True) or {}
     xkop_n=_as_int(cfg.get("xkop") or 1,1)
-    xkop_prt=8000 + xkop_n
+    preferred_xkop_prt=8000 + xkop_n
+
+    # Ensure preferred port is within valid range (8001-8020)
+    if preferred_xkop_prt < 8001 or preferred_xkop_prt > 8020:
+        preferred_xkop_prt = 8001
+
+    # Only search within 8001-8020 range
+    max_attempts = 8020 - preferred_xkop_prt + 1
+    xkop_prt=find_available_port(preferred_xkop_prt, max_attempts=max_attempts, check_both_protocols=True)
+
+    # Verify final port is in valid range
+    if xkop_prt < 8001 or xkop_prt > 8020:
+        xkop_prt = preferred_xkop_prt  # Will fail with clear error
+
+    if xkop_prt != preferred_xkop_prt:
+        log_app(f"Port {preferred_xkop_prt} in use, using port {xkop_prt} instead")
     inst_prt=_as_int(cfg.get("snmp_port") or 161,161)
     CONFIG={"ip": (cfg.get("ip") or "").strip(), "instation_ip": (cfg.get("instation_ip") or "127.0.0.1").strip(),
         "xkop": xkop_n, "snmp_port": inst_prt, "rows": cfg.get("rows", [])}
@@ -619,13 +682,33 @@ if __name__=="__main__":
     print("XKOP Tool - CLIENT MODE")
     print("="*60)
     with STATE_LOCK: seed_rows_from_config_locked()
-    xkop_prt = 8000 + int(CONFIG.get("xkop",1))
+
+    # Find available XKOP port (limited to 8001-8020 range)
+    preferred_xkop_port = 8000 + int(CONFIG.get("xkop",1))
+    # Ensure preferred port is within valid range
+    if preferred_xkop_port < 8001 or preferred_xkop_port > 8020:
+        preferred_xkop_port = 8001
+
+    # Only search within 8001-8020 range
+    max_attempts = 8020 - preferred_xkop_port + 1
+    xkop_prt = find_available_port(preferred_xkop_port, max_attempts=max_attempts, check_both_protocols=True)
+
+    # Verify final port is in valid range
+    if xkop_prt < 8001 or xkop_prt > 8020:
+        xkop_prt = preferred_xkop_port  # Will fail with clear error
+
+    if xkop_prt != preferred_xkop_port:
+        print(f"⚠️  Port {preferred_xkop_port} in use, using port {xkop_prt} instead")
+
+    # Flask port is always 5000 (start.sh kills any process using it)
+    flask_port = 5000
+
     XKOP_LISTEN_ADDR = ("0.0.0.0", xkop_prt)
     XKOP_TX_ADDR = ((CONFIG.get("ip") or "127.0.0.1"), xkop_prt)
     start_threads()
     time.sleep(1)
-    print(f"\nFlask on http://0.0.0.0:5000")
+    print(f"\nFlask on http://0.0.0.0:{flask_port}")
     print(f"XKOP Listening on {XKOP_LISTEN_ADDR[0]}:{XKOP_LISTEN_ADDR[1]} (UDP + TCP)")
     print(f"XKOP TX to controller {XKOP_TX_ADDR[0]}:{XKOP_TX_ADDR[1]}")
     print("="*60+"\n")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=flask_port, debug=False, threaded=True)

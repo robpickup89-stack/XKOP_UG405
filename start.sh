@@ -89,6 +89,33 @@ if [ ! -f "app.py" ]; then
     exit 1
 fi
 
+# Kill any processes using ports 5000 and 8001-8020
+echo "🔍 Checking for processes using ports 5000 and 8001-8020..."
+echo ""
+
+# Function to kill process on a specific port
+kill_port() {
+    local port=$1
+    local pid=$(lsof -ti:$port 2>/dev/null)
+    if [ ! -z "$pid" ]; then
+        echo "  Killing process $pid on port $port"
+        kill -9 $pid 2>/dev/null
+        sleep 0.1
+    fi
+}
+
+# Kill Flask port
+kill_port 5000
+
+# Kill XKOP ports (8001-8020)
+for port in {8001..8020}; do
+    kill_port $port
+done
+
+echo ""
+echo "✅ Ports cleared"
+echo ""
+
 # Display startup information
 echo "=========================================="
 echo "Starting XKOP Client Application..."
