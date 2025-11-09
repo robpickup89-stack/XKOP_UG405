@@ -360,6 +360,12 @@ def xkop_listener():
                 if recs:
                     log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
 
+                # Block output updates during test mode
+                if TEST_MODE:
+                    if recs:
+                        log_xkop(f"  Test mode: BLOCKED {len(recs)} output updates from controller")
+                    continue
+
                 # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
                 for (idx, val) in recs:
                     # Convert XKOP index to row number (0→1, 1→2, etc.)
@@ -462,6 +468,12 @@ def xkop_tcp_listener():
                             log_xkop(f"  Processing {len(recs)} records: {[(i,v) for i,v in recs]}")
                         except Exception as e:
                             log_xkop(f"  Error logging records: {e}, recs type: {type(recs)}")
+
+                    # Block output updates during test mode
+                    if TEST_MODE:
+                        if recs:
+                            log_xkop(f"  Test mode: BLOCKED {len(recs)} output updates from controller (TCP)")
+                        continue
 
                     # Update outputs: XKOP index maps directly to row number (idx 0 → row 1, idx 1 → row 2, etc.)
                     for rec in recs:
@@ -718,13 +730,16 @@ def snmp_set():
                 log_snmp(f"  Error processing row {r.get('nr','')}: {e}")
                 continue
 
-        if xkop_records and not TEST_MODE:
-            for i in range(0, len(xkop_records), 4):
-                batch = xkop_records[i:i+4]
-                pkt = xkop_build_data(batch)
-                udp_send(pkt, XKOP_TX_ADDR)
-                tcp_send(pkt)
-                log_xkop(f"TX bitmask {func}: {batch}")
+        if xkop_records:
+            if not TEST_MODE:
+                for i in range(0, len(xkop_records), 4):
+                    batch = xkop_records[i:i+4]
+                    pkt = xkop_build_data(batch)
+                    udp_send(pkt, XKOP_TX_ADDR)
+                    tcp_send(pkt)
+                    log_xkop(f"TX bitmask {func}: {batch}")
+            else:
+                log_snmp(f"  Test mode: BLOCKED sending {len(xkop_records)} bitmask records to controller")
 
     else:
         # Scalar - just use first matching row
@@ -746,7 +761,10 @@ def snmp_set():
                 key = r.get("nr") or r.get("input") or ""
                 if key:
                     update_in_value(key, value)
-                    log_snmp(f"  Row {row_nr} val={value} → XKOP idx={xkop_idx}")
+                    if not TEST_MODE:
+                        log_snmp(f"  Row {row_nr} val={value} → XKOP idx={xkop_idx}")
+                    else:
+                        log_snmp(f"  Row {row_nr} val={value} → Test mode: BLOCKED sending to controller")
 
                 if not TEST_MODE:
                     pkt = xkop_build_data([(xkop_idx, value)])
@@ -828,7 +846,12 @@ def get_config(): return jsonify(CONFIG)
 def get_state():
     global TEST_MODE, TEST_MODE_EXPIRY
     if TEST_MODE and TEST_MODE_EXPIRY and datetime.datetime.utcnow()>TEST_MODE_EXPIRY:
+        log_app(f"⏰ Test mode AUTO-EXPIRED at {datetime.datetime.utcnow().isoformat()}")
         TEST_MODE=False; TEST_MODE_EXPIRY=None
+        # Log current output values when auto-expiring
+        with STATE_LOCK:
+            output_count = sum(1 for row in STATE["rows"] if row.get("out_value") is not None)
+            log_app(f"  {output_count} output values ready for SNMP publishing")
     with STATE_LOCK:
         return jsonify({"rows":STATE["rows"],"last_update":STATE["last_update"],"test_mode":TEST_MODE,
                         "expires": TEST_MODE_EXPIRY.isoformat() if TEST_MODE_EXPIRY else None})
@@ -840,11 +863,54 @@ def get_test_mode(): return jsonify({"enabled":TEST_MODE})
 def set_test_mode():
     global TEST_MODE, TEST_MODE_EXPIRY
     data=request.get_json(force=True) or{}
-    TEST_MODE=bool(data.get("enabled",False))
+    requested_state = bool(data.get("enabled",False))
+
+    # Check if test mode is already in the requested state
+    if TEST_MODE == requested_state:
+        if requested_state:
+            # Already enabled - warn but don't reset timer
+            remaining_time = "unknown"
+            if TEST_MODE_EXPIRY:
+                remaining_seconds = (TEST_MODE_EXPIRY - datetime.datetime.utcnow()).total_seconds()
+                remaining_minutes = int(remaining_seconds / 60)
+                remaining_time = f"{remaining_minutes} minutes"
+            log_app(f"⚠️  Test mode is already ENABLED (expires in {remaining_time}). Not resetting timer.")
+            return jsonify({"ok":True,"enabled":TEST_MODE,"warning":"Test mode already enabled","expires":TEST_MODE_EXPIRY.isoformat() if TEST_MODE_EXPIRY else None})
+        else:
+            # Already disabled - just return status
+            log_app(f"Test mode is already DISABLED. No change needed.")
+            return jsonify({"ok":True,"enabled":TEST_MODE,"info":"Test mode already disabled"})
+
+    # State is changing - proceed with the change
+    TEST_MODE = requested_state
     if TEST_MODE:
+        # Reset all output values to 0 when entering test mode
+        with STATE_LOCK:
+            reset_count = 0
+            for row in STATE["rows"]:
+                if row.get("out_value") is not None:
+                    row["out_value"] = 0
+                    reset_count += 1
+            STATE["last_update"] = time.time()
         TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
+        log_app(f"✓ Test mode ENABLED. Reset {reset_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
     else:
+        # Leaving test mode - log all current output values for verification
         TEST_MODE_EXPIRY=None
+        with STATE_LOCK:
+            output_summary = []
+            for row in STATE["rows"]:
+                row_nr = row.get("nr", "?")
+                output_name = row.get("output", "")
+                out_value = row.get("out_value")
+                if out_value is not None:
+                    output_summary.append(f"Row {row_nr} ({output_name}): {out_value}")
+
+            log_app(f"✓ Test mode DISABLED. Current output values ready for SNMP publishing:")
+            for summary in output_summary[:10]:  # Log first 10 to avoid spam
+                log_app(f"  {summary}")
+            if len(output_summary) > 10:
+                log_app(f"  ... and {len(output_summary) - 10} more outputs")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
@@ -880,7 +946,11 @@ def test_output():
     key=str(data.get("key","")).strip(); value=int(data.get("value",1))
     row=STATE["by_key"].get(key)
     if not row: return jsonify({"ok":False}),404
+
+    # Test output: Update local state only (for SNMP to read), don't send to controller
+    # Flow: Webpage → PI → SNMP → Instation
     update_out_value(key, value)
+    log_app(f"Test output: Updated {key} = {value} (available for SNMP GET)")
     return jsonify({"ok":True})
 
 @app.get("/log/snmp")
