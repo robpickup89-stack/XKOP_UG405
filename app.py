@@ -947,24 +947,10 @@ def test_output():
     row=STATE["by_key"].get(key)
     if not row: return jsonify({"ok":False}),404
 
-    # XKOP index comes from row number (Nr 1→0, Nr 2→1, etc.)
-    try:
-        row_nr = row.get("nr", "").strip()
-        if not row_nr:
-            xkop_idx = 0
-        else:
-            xkop_idx = int(row_nr) - 1
-            # Validate index is in valid range (0-255)
-            if xkop_idx < 0 or xkop_idx > 255:
-                xkop_idx = 0
-    except (ValueError, IndexError, AttributeError):
-        xkop_idx = 0
-
+    # Test output: Update local state only (for SNMP to read), don't send to controller
+    # Flow: Webpage → PI → SNMP → Instation
     update_out_value(key, value)
-    # Send manual output changes to controller via XKOP
-    pkt=xkop_build_data([(xkop_idx,value)])
-    udp_send(pkt, XKOP_TX_ADDR)
-    tcp_send(pkt)
+    log_app(f"Test output: Updated {key} = {value} (available for SNMP GET)")
     return jsonify({"ok":True})
 
 @app.get("/log/snmp")
