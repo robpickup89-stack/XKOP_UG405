@@ -884,33 +884,27 @@ def set_test_mode():
     # State is changing - proceed with the change
     TEST_MODE = requested_state
     if TEST_MODE:
-        # Reset all output values to 0 when entering test mode
+        # Set all output values to 1 when entering test mode
+        with STATE_LOCK:
+            set_count = 0
+            for row in STATE["rows"]:
+                if row.get("out_value") is not None or row.get("output"):
+                    row["out_value"] = 1
+                    set_count += 1
+            STATE["last_update"] = time.time()
+        TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
+        log_app(f"✓ Test mode ENABLED. Set {set_count} output values to 1. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
+    else:
+        # Set all output values to 0 when disabling test mode
+        TEST_MODE_EXPIRY=None
         with STATE_LOCK:
             reset_count = 0
             for row in STATE["rows"]:
-                if row.get("out_value") is not None:
+                if row.get("out_value") is not None or row.get("output"):
                     row["out_value"] = 0
                     reset_count += 1
             STATE["last_update"] = time.time()
-        TEST_MODE_EXPIRY=datetime.datetime.utcnow()+datetime.timedelta(hours=1)
-        log_app(f"✓ Test mode ENABLED. Reset {reset_count} output values to 0. Will auto-expire at {TEST_MODE_EXPIRY.isoformat()}")
-    else:
-        # Leaving test mode - log all current output values for verification
-        TEST_MODE_EXPIRY=None
-        with STATE_LOCK:
-            output_summary = []
-            for row in STATE["rows"]:
-                row_nr = row.get("nr", "?")
-                output_name = row.get("output", "")
-                out_value = row.get("out_value")
-                if out_value is not None:
-                    output_summary.append(f"Row {row_nr} ({output_name}): {out_value}")
-
-            log_app(f"✓ Test mode DISABLED. Current output values ready for SNMP publishing:")
-            for summary in output_summary[:10]:  # Log first 10 to avoid spam
-                log_app(f"  {summary}")
-            if len(output_summary) > 10:
-                log_app(f"  ... and {len(output_summary) - 10} more outputs")
+            log_app(f"✓ Test mode DISABLED. Reset {reset_count} output values to 0.")
     return jsonify({"ok":True,"enabled":TEST_MODE})
 
 @app.post("/test/input")
@@ -993,8 +987,9 @@ def diag_network():
         hostname = socket.gethostname(); local_ip = socket.gethostbyname(hostname)
         results["hostname"] = hostname; results["local_ip"] = local_ip
     except Exception as e: results["hostname_error"] = str(e)
-    results["xkop_udp_listener_active"] = xkop_listener_sock is not None
     results["xkop_tcp_listener_active"] = xkop_tcp_listener_sock is not None
+    results["snmp_port"] = CONFIG.get("snmp_port", 161)
+    results["snmp_endpoint_active"] = True  # SNMP endpoints are always available via HTTP
     return jsonify(results)
 
 def start_threads():
