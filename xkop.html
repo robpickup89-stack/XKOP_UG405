@@ -1270,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   setInterval(refreshLogs,3000);
 
   // Auto-refresh state (skip test render to avoid button flickering)
-  setInterval(()=>refreshState(true),5000);
+  setInterval(()=>refreshState(true),500);
 
   // Countdown ticker
   setInterval(tickCountdown,1000);
